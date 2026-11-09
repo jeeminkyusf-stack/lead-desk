@@ -3,9 +3,15 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline' https://cdn.jsdelivr.net; font-src https://cdn.jsdelivr.net; img-src data:; connect-src https://bberccestktirszcghlj.supabase.co; form-action 'none'; base-uri 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline' https://cdn.jsdelivr.net; font-src https://cdn.jsdelivr.net; img-src 'self' data:; manifest-src 'self'; worker-src 'self'; connect-src https://bberccestktirszcghlj.supabase.co; form-action 'none'; base-uri 'none'">
 <meta name="robots" content="noindex">
 <title>Sales Hub</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="theme-color" content="#1d5fc4">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Sales Hub">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
 <style>
 :root{
@@ -463,6 +469,7 @@ document.addEventListener('change',e=>{
   if(t.type==='checkbox'&&t.dataset.l){const l=leadOf();l[t.dataset.l][+t.dataset.i][t.dataset.k]=t.checked;persist();render();return;}
   if(t.dataset.f==='stage'||t.dataset.f==='nextDate'){persist();if(V.name==='home')render();}
 });
+try{if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});}catch(e){}
 boot();
 </script>
 </body>
