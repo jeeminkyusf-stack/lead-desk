@@ -1,0 +1,375 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline' https://cdn.jsdelivr.net; font-src https://cdn.jsdelivr.net; img-src data:; connect-src 'none'; form-action 'none'; base-uri 'none'">
+<meta name="robots" content="noindex">
+<title>리드 데스크</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+<style>
+:root{
+  --bg:#f4f6f9;--panel:#fff;--line:#dfe4ec;--line2:#eef1f6;
+  --ink:#1b2738;--sub:#5d6b80;--faint:#8a96a8;
+  --blue:#1d5fc4;--blue-d:#123f87;--blue-m:#4a86de;--blue-l:#e8f0fc;--blue-l2:#f4f8fe;
+  --font:"Pretendard Variable",Pretendard,"Malgun Gothic",sans-serif;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{background:var(--bg);color:var(--ink);font:400 14px/1.5 var(--font);letter-spacing:-.005em}
+button,input,select,textarea{font:inherit;color:inherit;letter-spacing:inherit}
+[hidden]{display:none!important}
+:focus-visible{outline:2px solid var(--blue);outline-offset:1px}
+.shell{display:grid;grid-template-columns:200px minmax(0,1fr);min-height:100%}
+.rail{background:var(--panel);border-right:1px solid var(--line);padding:18px 0;position:sticky;top:0;height:100vh}
+.brand{font-size:16px;font-weight:700;padding:0 20px 18px;color:var(--blue-d)}
+.nav{display:flex;justify-content:space-between;width:100%;padding:10px 20px 10px 17px;border:0;border-left:3px solid transparent;background:none;cursor:pointer;text-align:left;color:var(--sub);font-weight:500}
+.nav:hover{background:var(--blue-l2)}
+.nav[aria-current="page"]{border-left-color:var(--blue);background:var(--blue-l);color:var(--blue-d);font-weight:700}
+main{padding:24px 28px 56px;min-width:0;max-width:1320px;display:flex;flex-direction:column;gap:14px}
+h1{font-size:20px;font-weight:700;margin:0}
+h2{font-size:14px;font-weight:700;margin:0}
+.head{display:flex;flex-wrap:wrap;gap:10px;justify-content:space-between;align-items:center}
+.btn{height:32px;padding:0 12px;border:1px solid var(--line);border-radius:4px;background:var(--panel);cursor:pointer;font-weight:500;white-space:nowrap}
+.btn:hover{border-color:var(--blue);color:var(--blue)}
+.btn.primary{background:var(--blue);border-color:var(--blue);color:#fff}
+.btn.primary:hover{background:var(--blue-d);border-color:var(--blue-d);color:#fff}
+.btn.sm{height:26px;padding:0 8px;font-size:12px}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.link{border:0;background:none;padding:0;color:var(--sub);cursor:pointer;font-size:13px}
+.link:hover{color:var(--blue)}
+.note{font-size:12px;color:var(--faint);margin:0}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:16px;display:flex;flex-direction:column;gap:12px;min-width:0}
+.tabs{display:flex;flex-wrap:wrap;gap:0;border-bottom:1px solid var(--line)}
+.tab{padding:9px 16px;border:0;border-bottom:2px solid transparent;margin-bottom:-1px;background:none;cursor:pointer;color:var(--sub);font-weight:500}
+.tab b{font-weight:600;margin-left:4px;color:var(--faint)}
+.tab[aria-selected="true"]{color:var(--blue-d);border-bottom-color:var(--blue);font-weight:700}
+.tab[aria-selected="true"] b{color:var(--blue)}
+.tag{display:inline-flex;align-items:center;height:22px;padding:0 8px;border-radius:3px;font-size:12px;font-weight:600;white-space:nowrap}
+.t-특송{background:var(--blue-d);color:#fff}.t-풀필먼트{background:var(--blue-m);color:#fff}.t-포워딩{background:var(--blue-l);color:var(--blue-d)}
+.t-none{background:var(--line2);color:var(--sub)}
+.tags{display:flex;flex-wrap:wrap;gap:4px}
+.table{background:var(--panel);border:1px solid var(--line);border-radius:6px;overflow:hidden}
+.tr{display:grid;grid-template-columns:minmax(0,1.3fr) 200px 110px minmax(0,1.5fr) 84px 72px 20px;gap:12px;align-items:center;padding:11px 16px;width:100%;border:0;background:none;text-align:left}
+.th{font-size:12px;font-weight:600;color:var(--sub);background:var(--blue-l2);border-bottom:1px solid var(--line);padding-block:8px}
+.row{border-bottom:1px solid var(--line2)}.row:last-child{border-bottom:0}
+button.tr{cursor:pointer}button.tr:hover{background:var(--blue-l2)}
+.row.open>button.tr{background:var(--blue-l)}
+.co{font-weight:600;overflow-wrap:anywhere}
+.co small{display:block;font-weight:400;font-size:12px;color:var(--faint)}
+.clip{color:var(--sub);font-size:13px;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.lanes{font-size:12px;color:var(--sub)}
+.due{font-weight:600;font-size:13px}.due.over{color:var(--blue-d);font-weight:800}.due.none{color:var(--faint);font-weight:400}
+.chev{color:var(--faint);transition:transform .15s}.row.open .chev{transform:rotate(180deg);color:var(--blue)}
+.drop{padding:16px;background:var(--blue-l2);border-top:1px solid var(--line);display:flex;flex-direction:column;gap:14px}
+.ctl{display:grid;grid-template-columns:auto 130px 150px minmax(0,1fr);gap:10px;align-items:end}
+.ctl label,.lb{display:block;font-size:12px;color:var(--sub);margin-bottom:3px}
+input,select,textarea{width:100%;height:32px;padding:0 8px;background:#fff;border:1px solid var(--line);border-radius:4px;min-width:0}
+textarea{height:auto;min-height:72px;padding:6px 8px;resize:vertical;display:block}
+input:focus,select:focus,textarea:focus{border-color:var(--blue);outline:0}
+.tog{height:32px;padding:0 12px;border:1px solid var(--line);background:#fff;cursor:pointer;font-weight:500;color:var(--sub)}
+.tog+.tog{margin-left:-1px}
+.tog:first-child{border-radius:4px 0 0 4px}.tog:last-child{border-radius:0 4px 4px 0}
+.tog[aria-pressed="true"]{background:var(--blue);border-color:var(--blue);color:#fff;position:relative}
+.seg{display:inline-flex}
+.svc{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:10px}
+.box{background:#fff;border:1px solid var(--line);border-radius:6px;padding:12px;display:flex;flex-direction:column;gap:8px;min-width:0}
+.box>h3{margin:0;font-size:13px;display:flex;align-items:center;gap:6px}
+.req{display:flex;flex-direction:column;gap:4px;padding-top:8px;border-top:1px solid var(--line2)}
+.req p{margin:0;overflow-wrap:anywhere}
+.req .bar{display:flex;gap:6px;align-items:center}
+.req select{width:84px;height:26px;font-size:12px;padding:0 4px}
+.req input{height:26px;font-size:12px}
+.mini{display:inline-flex;margin-left:auto}
+.mini button{height:22px;width:24px;border:1px solid var(--line);background:#fff;font-size:11px;cursor:pointer;color:var(--faint);padding:0}
+.mini button+button{margin-left:-1px}
+.mini button[aria-pressed="true"]{background:var(--blue-l);color:var(--blue-d);font-weight:700}
+.two{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.chk{display:grid;grid-template-columns:18px minmax(0,1fr);gap:6px 8px;align-items:start;padding-top:8px;border-top:1px solid var(--line2)}
+.chk input[type=checkbox]{width:16px;height:16px;margin:2px 0 0}
+.chk.done span{color:var(--faint);text-decoration:line-through}
+.chk input.ans{grid-column:2;height:26px;font-size:12px}
+dl{display:grid;grid-template-columns:72px minmax(0,1fr);gap:3px 8px;margin:0}
+dt{color:var(--sub);font-size:13px}dd{margin:0;overflow-wrap:anywhere}
+.acts{display:flex;gap:6px;justify-content:flex-end;align-items:center}
+.entry{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px}
+.entry textarea{min-height:300px}
+.empty{padding:40px 16px;text-align:center;color:var(--sub)}
+.notice{background:var(--blue-l);color:var(--blue-d);padding:8px 12px;border-radius:4px;display:flex;flex-wrap:wrap;gap:10px;justify-content:space-between;align-items:center;font-size:13px}
+.detail{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);gap:14px;align-items:start}
+.sec{font-size:12px;font-weight:700;color:var(--blue-d);padding-bottom:5px;border-bottom:1px solid var(--line);margin-top:6px}
+.f{display:grid;grid-template-columns:140px minmax(0,1fr) 48px;gap:8px;align-items:start;margin-top:6px}
+.f label{padding-top:6px;font-size:13px;color:var(--sub)}.f label i{color:var(--blue);font-style:normal}
+.f.done .btn{background:var(--blue-l);border-color:var(--blue-l);color:var(--blue-d)}
+.hints{display:flex;flex-wrap:wrap;gap:4px;margin-top:4px}
+.preview{background:var(--blue-l2);border:1px solid var(--line);border-radius:4px;padding:8px 10px;white-space:pre-wrap;overflow-wrap:anywhere;min-height:36px}
+.fu{padding-top:8px;border-top:1px solid var(--line2);display:flex;flex-direction:column;gap:4px}
+.fu p{margin:0;overflow-wrap:anywhere}
+.fu .bar{display:flex;gap:6px;align-items:center;font-size:12px;color:var(--sub)}.fu .bar span:first-child{margin-right:auto}
+.form2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.form2 .wide{grid-column:1/-1}
+#toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--blue-d);color:#fff;padding:7px 14px;border-radius:4px;z-index:20}
+@media (max-width:1100px){.tr{grid-template-columns:minmax(0,1fr) 180px 70px 20px}.tr>.c-lane,.tr>.c-req,.tr>.c-stage{display:none}.detail,.entry{grid-template-columns:minmax(0,1fr)}}
+@media (max-width:720px){.shell{grid-template-columns:minmax(0,1fr)}.rail{position:static;height:auto;display:flex;flex-wrap:wrap;padding:10px 0}.brand{width:100%;padding-bottom:6px}.nav{width:auto}main{padding:16px}.tr{grid-template-columns:minmax(0,1fr) 60px 20px}.tr>.c-tag{grid-row:2;grid-column:1/-1}.ctl,.two{grid-template-columns:minmax(0,1fr)}.f{grid-template-columns:minmax(0,1fr) 48px}.f label{grid-column:1/-1;padding:0}}
+</style>
+</head>
+<body>
+<div class="shell"><nav class="rail" id="rail" aria-label="메뉴"></nav><main id="view"></main></div>
+<div id="toast" hidden></div>
+<script>
+'use strict';
+const SERVICES=['특송','풀필먼트','포워딩'];
+const SVC_RULE={
+  '특송':/특송|택배|직배송|B2C|라스트\s*마일|소비자\s*배송|개별\s*(주문|배송)|국제\s*배송|크로스보더/i,
+  '풀필먼트':/풀필먼트|3PL|창고|보관|입고|재고|현지\s*분류|주문별\s*분류|송장\s*부착|배송대행지|합배송|합포장/i,
+  '포워딩':/포워딩|해상|항공\s*(운송|화물)|컨테이너|FCL|LCL|벌크|B2B|수출입\s*운송/i
+};
+const classify=t=>SERVICES.filter(s=>SVC_RULE[s].test(t||''));
+const CRM_SVC={'특송':['택배 (전자상거래)','택배 (표준)'],'풀필먼트':['물류배송 (3PL)','공급망 창고배송'],'포워딩':['화물운송대리 (항공사)','화물운송 (해운)']};
+const OPT={
+  channel:['SELF','WA','BA','CS','MKT','MKT-PJT','MKT-AI'],scale:['중소기업','중견기업','대기업'],
+  biz:['뷰티','패션','식품•건강','전자•IT','공업•제조','반도체•하이테크산업','생활•소비재','이커머스•유통','물류•서비스'],
+  rev:['10억 미만','10억~50억','50억~100억','100억~500억','500억~1000억','1000억 이상'],
+  svc:['물류배송 (3PL)','택배 (전자상거래)','택배 (표준)','화물운송대리 (항공사)','화물운송 (해운)','공급망 창고배송','인바운드 (수입)'],
+  log:['500만원 미만','500만원~1000만원','1000만원~3000만원','3000만원~5000만원','5000만원~1억','1억 이상'],
+  group:['한국 브랜드 해외진출','한국 국내 사업','중국 브랜드 한국 진출'],sales:['진행중','보류','실주','현금거래'],
+  stage:['리드','초기 접촉','니즈 확인','제안 논의','비즈니스 협상','계약 체결'],pri:['낮음','보통','높음']
+};
+const FIELDS=[
+  ['고객 정보',[['nameKo','회사명 (한국어)',1],['nameCn','회사명 (중국어)',1],['contact','고객성함',1],['phone','고객사 연락처',1],['email','고객사 이메일'],['owner','담당자',1],['channel','유입채널',0,'combo',OPT.channel],['scale','고객규모',0,'combo',OPT.scale],['bizarea','사업영역',0,'combo',OPT.biz],['revscale','매출규모',0,'sel',OPT.rev],['site','판매처/홈페이지']]],
+  ['물류 수요',[['svctype','서비스타입',1,'combo',OPT.svc],['countries','목표 국가/지역'],['courier','사용 택배'],['logscale','물류비규모',0,'sel',OPT.log],['inquiry','문의 내용 및 비고',0,'area'],['annual','예상 연간 물류 매출',0,'num'],['annual2','예상 연간 물류 매출 (둘째 칸)',0,'num']]],
+  ['파이프라인 정보',[['stage','세일즈 단계',0,'sel',OPT.stage],['priority','우선순위',0,'sel',OPT.pri],['monthly','예상 월간 물류 매출',0,'num'],['win','성공률 (%)',0,'num'],['nextDate','다음 팔로우업 날짜',0,'date'],['nextAction','다음 액션']]],
+  ['추가 정보',[['contractNo','계약번호'],['group','목표 고객군',0,'sel',OPT.group],['salestatus','영업상태',0,'sel',OPT.sales],['referrer','알게된경로'],['crmFlag','CRM 여부'],['hold','보류사유'],['detailReason','상세사유'],['weekly','금주 동향',0,'area'],['sfOpp','SF 진출 기회',0,'area']]]
+];
+const COUNTRY={미국:'US',중국:'CN',일본:'JP',베트남:'VN',한국:'KR',홍콩:'중국 홍콩',대만:'중국 대만',마카오:'중국 마카오',싱가포르:'SG',캐나다:'CA',유럽:'EU',말레이시아:'MY',동남아:'SEA',호주:'AU',핀란드:'FI',뉴질랜드:'NZ',필리핀:'PH'};
+const BIZ_HINT=[['뷰티',/화장품|뷰티|코스메/],['식품•건강',/건강|식품|웰니스|건기식/],['패션',/패션|의류|잡화/],['전자•IT',/전자|가전/],['공업•제조',/제조|공업|부품/],['반도체•하이테크산업',/반도체|하이테크/],['생활•소비재',/생활|소비재|리빙/],['이커머스•유통',/커머스|유통|쇼핑몰/],['물류•서비스',/물류/]];
+const UNKNOWN=/^(미확인|미정|확인\s*필요|확인\s*중|n\/?a|-|—)?$/i;
+
+function parseLead(raw){
+  const lines=String(raw||'').replace(/\r\n?/g,'\n').replace(/\*\*/g,'').replace(/ /g,' ').split('\n').map(s=>s.trim());
+  const secs=[];let cur=null,title='';
+  for(const line of lines){
+    if(!line)continue;
+    const s=line.match(/^■\s*([^:：]+?)\s*(?:[:：]\s*(.*))?$/);
+    if(s){cur={name:s[1].replace(/\s/g,''),inline:s[2]||'',lines:[]};secs.push(cur);continue;}
+    if(!cur){const t=line.match(/^\[(.+)\]$/);if(t)title=t[1];continue;}
+    cur.lines.push(line);
+  }
+  const sec=k=>secs.find(x=>x.name.includes(k))||{lines:[],inline:''};
+  const strip=l=>l.replace(/^[-•·*▪]\s*/,'');
+  const kv=l=>{const b=strip(l);if(/^\d+[.)]/.test(b))return null;const m=b.match(/^([^:：]{1,24}?)\s*[:：]\s*(.*)$/);if(!m||/https?$/i.test(m[1]))return null;return [m[1].replace(/\s/g,''),m[2].trim()];};
+  const map=s=>{const o={};for(const l of s.lines){const p=kv(l);if(p)o[p[0]]=p[1];}return o;};
+  const co=map(sec('기업')),ct=map(sec('담당자'));
+  const known=v=>UNKNOWN.test(v||'')?'':v;
+  const unknown=[];
+  [[co,'대표자'],[co,'매출액'],[co,'사업카테고리'],[co,'주요제품'],[co,'사업자등록번호'],[co,'소재지'],[ct,'이메일']].forEach(([o,k])=>{if(k in o&&UNKNOWN.test(o[k]))unknown.push(k);});
+  const urls=[];
+  for(const k in co)if(/홈페이지|쇼핑몰|사이트|URL/i.test(k)&&known(co[k]))urls.push({label:k,url:co[k]});
+  const details={},requests=[],para=[];
+  for(const l of sec('문의내용').lines){
+    if(/^\[.*\]$/.test(l))continue;
+    const n=strip(l).match(/^\d+[.)]\s*(.+)/);
+    if(n){requests.push(n[1]);continue;}
+    const p=kv(l);
+    if(p)details[p[0]]=p[1];else para.push(strip(l));
+  }
+  const checks=sec('확인필요').lines.map(strip).filter(Boolean);
+  const remarks=sec('비고').lines.map(strip).filter(Boolean);
+  const tagText=[sec('영업구분').inline,...sec('영업구분').lines].join(' / ');
+  const tags=tagText.split('/').map(s=>s.trim()).filter(Boolean);
+  const types=(ct['문의유형']||'').split(/[\/,]/).map(s=>s.trim()).filter(Boolean);
+  const originM=tagText.match(/([가-힣]+)\s*(?:→|->)\s*한국/);
+  const origin=originM&&COUNTRY[originM[1]]&&originM[1]!=='한국'?originM[1]:'';
+  const names=(details['대상국가']||'').split(/[·,、\/\s]+|및/).map(s=>s.replace(/등$/,'').trim()).filter(Boolean);
+  const countries=[],unmapped=[];
+  for(const n of names){const c=COUNTRY[n];if(!c){unmapped.push(n);continue;}countries.push({name:n,code:c,lane:origin?COUNTRY[origin]+'-KR':'KR-'+c});}
+  const blob=[co['사업카테고리'],co['주요제품'],details['취급품목']].filter(Boolean).join(' ');
+  const company=known(co['회사명'])||(title.split(/[–—-]/).slice(1).join('-').trim());
+  const services=classify([...types,...tags,...requests,...remarks,details['요청서비스']||''].join(' | '));
+  const warnings=[];
+  if(!company)warnings.push('회사명을 찾지 못했습니다.');
+  if(!known(ct['성명']))warnings.push('문의 담당자 성명을 찾지 못했습니다.');
+  if(!known(ct['연락처']))warnings.push('문의 담당자 연락처를 찾지 못했습니다.');
+  if(!countries.length&&!unmapped.length)warnings.push('대상 국가를 찾지 못했습니다.');
+  if(unmapped.length)warnings.push('CRM 국가 코드로 바꾸지 못한 국가: '+unmapped.join(', '));
+  if(!services.length)warnings.push('서비스를 자동 분류하지 못했습니다. 등록 후 직접 선택해 주세요.');
+  return {company,ceo:known(co['대표자']),revenue:known(co['매출액']),category:known(co['사업카테고리']),products:known(co['주요제품']),urls,bizNo:known(co['사업자등록번호']),address:known(co['소재지']),
+    contact:known(ct['성명']),phone:known(ct['연락처']),email:known(ct['이메일']),inquiryDate:known(ct['문의일']),channel:known(ct['유입경로']),types,
+    summary:para.join(' '),details,requests,checks,remarks,tags,origin,countries,unmapped,unknown,warnings,services,
+    bizHints:BIZ_HINT.filter(h=>h[1].test(blob)).map(h=>h[0])};
+}
+function shortDate(s){const m=String(s||'').match(/(\d{4})[-./](\d{1,2})[-./](\d{1,2})/);return m?m[1].slice(2)+'.'+(+m[2])+'.'+(+m[3]):'';}
+function composeInquiry(p){
+  const out=[];
+  if(shortDate(p.inquiryDate))out.push(shortDate(p.inquiryDate));
+  if(p.countries.length)out.push(p.origin?p.origin+'-한국 발':'한국-'+p.countries.map(c=>c.name).join('·')+' 발');
+  if(p.summary)out.push(p.summary);
+  [['취급품목','취급 품목'],['출고방식','출고 방식'],['요청서비스','요청 서비스']].forEach(([k,t])=>{if(p.details[k])out.push(t+': '+p.details[k]);});
+  if(p.requests.length)out.push('','[주요 요청사항]',...p.requests.map((r,i)=>(i+1)+'. '+r));
+  if(p.checks.length)out.push('','[확인 필요]',...p.checks.map(c=>'- '+c));
+  if(p.remarks.length)out.push('','[비고]',...p.remarks.map(c=>'- '+c));
+  const info=[p.ceo&&'대표자: '+p.ceo,p.bizNo&&'사업자번호: '+p.bizNo,p.address&&'소재지: '+p.address,p.products&&'주요 제품: '+p.products,...p.urls.slice(1).map(u=>u.label+': '+u.url)].filter(Boolean);
+  if(info.length)out.push('','[고객사 정보]',...info);
+  return out.join('\n');
+}
+function buildLead(p){
+  const lanes=[...new Set(p.countries.map(c=>c.lane))];
+  return {id:'L'+Date.now().toString(36)+Math.random().toString(36).slice(2,6),created:today(),inquiryDate:p.inquiryDate,crmSynced:false,bizNo:p.bizNo,bizHints:p.bizHints,
+    services:p.services.slice(),summary:p.summary,item:p.details['취급품목']||'',reqService:p.details['요청서비스']||'',
+    crm:{nameKo:p.company,nameCn:p.company,contact:p.contact,phone:p.phone,email:p.email,owner:S.owner,channel:p.channel,scale:'',bizarea:'',revscale:OPT.rev.includes(p.revenue)?p.revenue:'',site:p.urls[0]?p.urls[0].url:'',svctype:'',countries:lanes.join(', '),courier:'',logscale:'',inquiry:composeInquiry(p),annual:'',annual2:'',stage:'리드',priority:'보통',monthly:'',win:'',nextDate:'',nextAction:'',contractNo:'',group:p.origin?(p.origin==='중국'?'중국 브랜드 한국 진출':''):(lanes.length?'한국 브랜드 해외진출':''),salestatus:'진행중',referrer:'',crmFlag:'',hold:'',detailReason:'',weekly:'',sfOpp:''},
+    tasks:[...p.checks.map(t=>({text:t,done:false,answer:''})),...p.unknown.map(k=>({text:k+' 확인',done:false,answer:''}))],
+    requests:p.requests.map(t=>({text:t,status:'검토 전',answer:'',cats:classify(t)})),
+    followups:[]};
+}
+const KEY='lead-desk-v2';let storageOK=true;
+function today(d){const x=d||new Date();return x.getFullYear()+'-'+String(x.getMonth()+1).padStart(2,'0')+'-'+String(x.getDate()).padStart(2,'0');}
+function addDays(n){const d=new Date();d.setDate(d.getDate()+n);return today(d);}
+function load(){try{const v=localStorage.getItem(KEY);if(v){const o=JSON.parse(v);if(o&&Array.isArray(o.leads))return o;}}catch(e){storageOK=false;}return null;}
+let saveT=0;
+function persist(){try{localStorage.setItem(KEY,JSON.stringify(S));storageOK=true;}catch(e){storageOK=false;}}
+function save(){clearTimeout(saveT);saveT=setTimeout(persist,200);}
+window.addEventListener('pagehide',persist);
+const form=(name,cat,items,type,country,flow,req,chk)=>`[신규 영업문의 공유 – ${name}]\n\n■ 기업정보\n- 회사명: ${name}\n- 대표자: 홍길동\n- 매출액: 미확인\n- 사업 카테고리: ${cat}\n- 홈페이지: https://example.com\n\n■ 문의 담당자\n- 성명: 김예시\n- 연락처: 010-0000-0000\n- 이메일: contact@example.com\n- 문의일: ${today()}\n- 유입경로: MKT\n- 문의 유형: ${type}\n\n■ 문의 내용\n\n가상의 예시 문의입니다.\n\n- 대상 국가: ${country}\n- 취급 품목: ${items}\n- 요청 서비스: ${flow}\n\n[주요 요청사항]\n${req.map((r,i)=>(i+1)+'. '+r).join('\n')}\n\n■ 확인 필요\n${chk.map(r=>'- '+r).join('\n')}\n\n■ 영업 구분: 글로벌 이커머스`;
+const SAMPLE=form('(예시) 가나다뷰티㈜','화장품 / 온라인 커머스','화장품','국제특송 / 국제포워딩 / 크로스보더 이커머스','미국·일본','국제운송, 현지 수입통관, 최종 소비자 배송',['국가별 B2C 직배송 가능 여부','한국에서 합배송 후 현지 분류·송장 부착 가능 여부','컨테이너 해상 운송 견적','화장품 통관 지원 범위'],['국가별 월 예상 주문량','기존 물류사']);
+const SAMPLE2=form('(예시) 라마바산업㈜','제조업 / 산업용 부품','산업용 부품','국제포워딩','베트남','국제운송',['베트남행 항공 운송 견적','FCL 해상 운송 주기'],['월 물동량 및 CBM']);
+let S=load();
+if(!S){
+  S={leads:[],lastBackup:null,owner:''};
+  [SAMPLE,SAMPLE2].forEach((t,i)=>{const e=buildLead(parseLead(t));e.id='EX'+i;e.example=true;if(!i){e.crm.nextDate=addDays(-1);e.crm.nextAction='회사소개서 회신 확인';e.crm.stage='초기 접촉';}S.leads.push(e);});
+}
+const $=id=>document.getElementById(id);
+const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+let V={name:'home',id:null,tab:'전체',open:null,entry:false,draft:'',armed:null,restore:null,fuType:'이메일',fuDate:today(),fuAct:'메일 발송',fuBody:''};
+const copied={};
+const isClosed=l=>l.crm.stage==='계약 체결'||l.crm.salestatus==='실주'||l.crm.salestatus==='보류';
+const unsynced=l=>!l.crmSynced||l.followups.some(f=>!f.synced);
+function dday(d){if(!d)return {t:'—',c:'none'};const n=Math.round((new Date(d+'T00:00')-new Date(today()+'T00:00'))/864e5);return n<0?{t:'D+'+(-n),c:'over'}:n===0?{t:'오늘',c:'over'}:{t:'D-'+n,c:''};}
+const tagHtml=s=>`<span class="tag t-${s}">${s}</span>`;
+function nav(){
+  const n=S.leads.filter(l=>!isClosed(l)).length;
+  $('rail').innerHTML='<div class="brand">리드 데스크</div>'+[['home','신규 업체',n],['data','설정·백업','']].map(([k,t,c])=>`<button class="nav" data-act="go" data-v="${k}" ${V.name===k||(k==='home'&&V.name==='lead')?'aria-current="page"':''}><span>${t}</span><span>${c}</span></button>`).join('');
+}
+function inTab(l,t){if(t==='종결')return isClosed(l);if(isClosed(l))return false;if(t==='전체')return true;if(t==='미분류')return !l.services.length;return l.services.includes(t);}
+function entryHtml(){
+  return `<section class="panel"><div class="entry"><div><label class="lb" for="draft">배분 양식 붙여넣기</label><textarea id="draft" placeholder="[신규 영업문의 공유 – 회사명]">${esc(V.draft)}</textarea></div><div id="pv" style="display:flex;flex-direction:column;gap:10px">${previewHtml()}</div></div></section>`;
+}
+function previewHtml(){
+  if(!V.draft.trim())return '<p class="note">양식을 붙여넣으면 업체 정보와 서비스 분류가 여기에 표시됩니다. 내용은 이 브라우저 밖으로 전송되지 않습니다.</p><div><button class="btn sm" data-act="sample">예시 양식 넣기</button></div>';
+  const p=parseLead(V.draft);
+  const dup=S.leads.find(l=>!l.example&&((p.bizNo&&l.bizNo===p.bizNo)||(p.company&&l.crm.nameKo===p.company)));
+  return `<h2>${esc(p.company)||'회사명 없음'}</h2><div class="tags">${p.services.map(tagHtml).join('')||'<span class="tag t-none">미분류</span>'}</div>
+  <dl><dt>담당자</dt><dd>${esc([p.contact,p.phone,p.email].filter(Boolean).join(' · '))||'—'}</dd><dt>항로</dt><dd>${esc(p.countries.map(c=>c.lane).join(', '))||'—'}</dd><dt>품목</dt><dd>${esc(p.details['취급품목'])||'—'}</dd><dt>요청사항</dt><dd>${p.requests.length}건</dd><dt>확인 필요</dt><dd>${p.checks.length+p.unknown.length}건</dd></dl>
+  ${p.warnings.map(w=>`<div class="notice">${esc(w)}</div>`).join('')}${dup?`<div class="notice">이미 등록된 업체입니다.</div>`:''}
+  <div><button class="btn primary" data-act="register" ${p.company?'':'disabled'}>등록</button></div>`;
+}
+function reqHtml(l,i){const r=l.requests[i];return `<div class="req"><p>${esc(r.text)}</p><div class="bar"><select data-l="requests" data-i="${i}" data-k="status" aria-label="가능 여부">${['검토 전','가능','조건부','불가'].map(x=>`<option ${r.status===x?'selected':''}>${x}</option>`).join('')}</select><input data-l="requests" data-i="${i}" data-k="answer" value="${esc(r.answer)}" placeholder="답변 메모" aria-label="답변 메모"><span class="mini">${SERVICES.map(s=>`<button data-act="req-cat" data-i="${i}" data-s="${s}" aria-pressed="${r.cats.includes(s)}" aria-label="${s}" title="${s}">${s[0]}</button>`).join('')}</span></div></div>`;}
+function dropHtml(l){
+  const blocks=SERVICES.filter(s=>l.services.includes(s)||l.requests.some(r=>r.cats.includes(s))).map(s=>{const idx=l.requests.map((r,i)=>r.cats.includes(s)?i:-1).filter(i=>i>=0);return `<div class="box"><h3>${tagHtml(s)}<span>${idx.length}건</span></h3>${idx.map(i=>reqHtml(l,i)).join('')||'<p class="note">이 서비스로 분류된 요청이 없습니다.</p>'}</div>`;}).join('');
+  const common=l.requests.map((r,i)=>r.cats.length?-1:i).filter(i=>i>=0);
+  return `<div class="drop"><div class="ctl"><div><span class="lb">서비스 분류 (복수 선택)</span><div class="seg">${SERVICES.map(s=>`<button class="tog" data-act="svc" data-s="${s}" aria-pressed="${l.services.includes(s)}">${s}</button>`).join('')}</div></div><div><label for="st-${l.id}">단계</label><select id="st-${l.id}" data-f="stage">${OPT.stage.map(x=>`<option ${l.crm.stage===x?'selected':''}>${x}</option>`).join('')}</select></div><div><label for="nd-${l.id}">다음 팔로우업</label><input id="nd-${l.id}" type="date" data-f="nextDate" value="${esc(l.crm.nextDate)}"></div><div><label for="na-${l.id}">다음 액션</label><input id="na-${l.id}" data-f="nextAction" value="${esc(l.crm.nextAction)}"></div></div>
+  ${blocks?`<div class="svc">${blocks}</div>`:''}${common.length?`<div class="box"><h3><span class="tag t-none">공통</span><span>${common.length}건</span></h3>${common.map(i=>reqHtml(l,i)).join('')}</div>`:''}
+  <div class="two"><div class="box"><h3>확인 필요</h3>${l.tasks.map((t,i)=>`<div class="chk ${t.done?'done':''}"><input type="checkbox" data-l="tasks" data-i="${i}" data-k="done" ${t.done?'checked':''} aria-label="확인 완료"><span>${esc(t.text)}</span><input class="ans" data-l="tasks" data-i="${i}" data-k="answer" value="${esc(t.answer)}" placeholder="회신 내용" aria-label="회신 내용"></div>`).join('')||'<p class="note">확인할 항목이 없습니다.</p>'}</div>
+  <div class="box"><h3>업체 정보</h3><dl><dt>담당자</dt><dd>${esc(l.crm.contact)||'—'}</dd><dt>연락처</dt><dd>${esc(l.crm.phone)||'—'}</dd><dt>이메일</dt><dd>${esc(l.crm.email)||'—'}</dd><dt>품목</dt><dd>${esc(l.item)||'—'}</dd><dt>요청</dt><dd>${esc(l.reqService)||'—'}</dd><dt>문의</dt><dd>${esc(l.summary)||'—'}</dd></dl></div></div>
+  <div class="acts"><button class="link" data-act="del">${V.armed==='del'?'한 번 더 누르면 삭제됩니다':'삭제'}</button><button class="btn" data-act="req-copy">답변 복사</button><button class="btn primary" data-act="open" data-id="${l.id}">CRM 입력 · 팔로우업</button></div></div>`;
+}
+function viewHome(){
+  const tabs=['전체',...SERVICES,'미분류','종결'];
+  const list=S.leads.filter(l=>inTab(l,V.tab));
+  const ex=S.leads.some(l=>l.example);
+  const needBk=S.leads.some(l=>!l.example)&&(!S.lastBackup||(Date.now()-new Date(S.lastBackup))/864e5>=7);
+  return `<div class="head"><h1>신규 업체</h1><button class="btn primary" data-act="entry">${V.entry?'입력 닫기':'+ 업체 등록'}</button></div>
+  ${V.entry?entryHtml():''}
+  ${storageOK?'':'<div class="notice">이 브라우저에서 저장이 차단되어 새로고침하면 입력 내용이 사라집니다.</div>'}
+  ${ex?'<div class="notice"><span>지금 보이는 업체는 가상 예시입니다. 첫 업체를 등록하면 자동으로 지워집니다.</span><button class="btn sm" data-act="clear-ex">예시 지우기</button></div>':''}
+  ${needBk?'<div class="notice"><span>백업한 지 7일이 지났거나 백업 파일이 없습니다.</span><button class="btn sm" data-act="backup">백업</button></div>':''}
+  <div class="tabs" role="tablist">${tabs.map(t=>`<button class="tab" role="tab" data-act="tab" data-t="${t}" aria-selected="${V.tab===t}">${t}<b>${S.leads.filter(l=>inTab(l,t)).length}</b></button>`).join('')}</div>
+  <div class="table"><div class="tr th"><span>업체</span><span class="c-tag">서비스</span><span class="c-lane">항로</span><span class="c-req">요청 내용</span><span class="c-stage">단계</span><span>다음 일정</span><span></span></div>
+  ${list.map(l=>{const d=dday(l.crm.nextDate),o=V.open===l.id;return `<div class="row ${o?'open':''}"><button class="tr" data-act="toggle" data-id="${l.id}" aria-expanded="${o}"><span class="co">${esc(l.crm.nameKo||'회사명 없음')}<small>${esc(shortDate(l.inquiryDate)||shortDate(l.created))}${unsynced(l)?' · CRM 미반영':''}</small></span><span class="tags c-tag">${l.services.map(tagHtml).join('')||'<span class="tag t-none">미분류</span>'}</span><span class="lanes c-lane">${esc(l.crm.countries)||'—'}</span><span class="clip c-req">${esc([l.item,l.reqService].filter(Boolean).join(' · '))||'—'}</span><span class="c-stage">${esc(l.crm.stage)}</span><span class="due ${d.c}">${d.t}</span><span class="chev" aria-hidden="true">▾</span></button>${o?dropHtml(l):''}</div>`}).join('')||'<div class="empty">표시할 업체가 없습니다.</div>'}</div>`;
+}
+function ctrl(l,it){
+  const [k,,,t,o]=it;const v=l.crm[k]==null?'':l.crm[k];const id='f-'+k;
+  if(t==='sel'){const a=!v||o.includes(v)?o:[v,...o];return `<select id="${id}" data-f="${k}"><option value=""></option>${a.map(x=>`<option ${x===v?'selected':''}>${esc(x)}</option>`).join('')}</select>`;}
+  if(t==='combo')return `<input id="${id}" data-f="${k}" list="dl-${k}" value="${esc(v)}"><datalist id="dl-${k}">${o.map(x=>`<option value="${esc(x)}">`).join('')}</datalist>`;
+  if(t==='area')return `<textarea id="${id}" data-f="${k}" rows="${k==='inquiry'?9:3}">${esc(v)}</textarea>`;
+  if(t==='date')return `<input id="${id}" type="date" data-f="${k}" value="${esc(v)}">`;
+  return `<input id="${id}" data-f="${k}" value="${esc(v)}" ${t==='num'?'inputmode="numeric"':''}>`;
+}
+const hints=(k,a)=>a&&a.length?`<div class="hints">${a.map(x=>`<button class="btn sm" data-act="hint" data-k="${k}" data-v="${esc(x)}">${esc(x)}</button>`).join('')}</div>`:'';
+function fuText(){const d=shortDate(V.fuDate);const b=V.fuBody.split('\n').map(s=>s.trim()).filter(Boolean);return [d+' '+V.fuAct.trim(),...b].filter(s=>s.trim()).join(' - ');}
+function viewLead(){
+  const l=S.leads.find(x=>x.id===V.id);if(!l){V.name='home';return viewHome();}
+  const set=copied[l.id]||{};
+  const miss=FIELDS.flatMap(s=>s[1]).filter(i=>i[2]&&!String(l.crm[i[0]]||'').trim()).map(i=>i[1]);
+  const svcH=l.services.flatMap(s=>CRM_SVC[s]);
+  return `<div class="head"><div><button class="link" data-act="go" data-v="home">← 신규 업체</button><h1>${esc(l.crm.nameKo||'회사명 없음')}</h1><div class="tags" style="margin-top:4px">${l.services.map(tagHtml).join('')}</div></div><div class="acts"><span class="note" id="sync-pill">${unsynced(l)?'CRM 미반영':'CRM 반영 완료'}</span><button class="btn primary" data-act="synced">CRM 반영 완료</button></div></div>
+  ${miss.length?`<div class="notice">CRM 필수 항목 미입력: ${esc(miss.join(', '))}</div>`:''}
+  <div class="detail"><section class="panel"><div class="head"><h2>CRM 입력 시트</h2><button class="link" data-act="reset-copy">복사 표시 지우기</button></div>${FIELDS.map(([t,items])=>`<div><div class="sec">${t}</div>${items.map(it=>`<div class="f ${set[it[0]]?'done':''}" id="row-${it[0]}"><label for="f-${it[0]}">${esc(it[1])}${it[2]?' <i>*</i>':''}</label><div>${ctrl(l,it)}${it[0]==='bizarea'?hints('bizarea',l.bizHints):''}${it[0]==='svctype'?hints('svctype',svcH):''}</div><button class="btn sm" data-act="copy-f" data-k="${it[0]}" aria-label="${esc(it[1])} 복사">${set[it[0]]?'완료':'복사'}</button></div>`).join('')}</div>`).join('')}</section>
+  <section class="panel"><h2>팔로우업 기록</h2><div class="form2"><div><label class="lb" for="fu-type">유형</label><select id="fu-type" data-v="fuType">${['이메일','전화','미팅','기타'].map(x=>`<option ${V.fuType===x?'selected':''}>${x}</option>`).join('')}</select></div><div><label class="lb" for="fu-date">날짜</label><input id="fu-date" type="date" data-v="fuDate" value="${esc(V.fuDate)}"></div><div class="wide"><label class="lb" for="fu-act">한 일</label><input id="fu-act" data-v="fuAct" value="${esc(V.fuAct)}"></div><div class="wide"><label class="lb" for="fu-body">내용 (줄마다 항목 하나)</label><textarea id="fu-body" data-v="fuBody">${esc(V.fuBody)}</textarea></div></div>
+  <div class="preview" id="fu-pv">${esc(fuText())}</div><div class="acts"><button class="btn" data-act="fu-copy">문구 복사</button><button class="btn primary" data-act="fu-add">기록 추가</button></div>
+  ${l.followups.map((f,i)=>`<div class="fu"><div class="bar"><span>${esc(f.type)} · ${esc(f.date)}</span><button class="btn sm" data-act="fu-copy-i" data-i="${i}">복사</button><button class="btn sm" data-act="fu-sync" data-i="${i}">${f.synced?'반영됨':'미반영'}</button><button class="btn sm" data-act="fu-del" data-i="${i}">삭제</button></div><p>${esc(f.text)}</p></div>`).join('')}</section></div>`;
+}
+function viewData(){
+  return `<h1>설정·백업</h1><section class="panel" style="max-width:640px"><div><label class="lb" for="owner">담당자 이름 (CRM 표기대로)</label><input id="owner" data-v2="owner" value="${esc(S.owner)}"><p class="note" style="margin-top:4px">새로 등록하는 업체의 담당자 칸에 자동으로 입력됩니다.</p></div></section>
+  <section class="panel" style="max-width:640px"><h2>백업</h2><dl><dt>업체</dt><dd>${S.leads.filter(l=>!l.example).length}건</dd><dt>마지막</dt><dd>${S.lastBackup?esc(S.lastBackup.slice(0,10)):'없음'}</dd></dl><p class="note">데이터는 이 PC의 이 브라우저에만 저장됩니다. 사이트 데이터를 지우면 복구할 수 없습니다. 백업 파일에는 고객 연락처가 포함되므로 회사가 허용한 위치에 보관하세요.</p><div><button class="btn primary" data-act="backup">백업 파일 저장</button></div></section>
+  <section class="panel" style="max-width:640px"><h2>복원</h2><input id="restore-file" type="file" accept=".json,application/json" aria-label="백업 파일 선택" style="height:auto;padding:4px">${V.restore?`<div class="notice"><span>현재 데이터를 업체 ${V.restore.leads.length}건으로 덮어씁니다.</span><span class="acts"><button class="btn sm" data-act="restore-no">취소</button><button class="btn sm primary" data-act="restore-ok">덮어쓰기</button></span></div>`:''}</section>`;
+}
+function render(){nav();$('view').innerHTML=({home:viewHome,lead:viewLead,data:viewData}[V.name]||viewHome)();}
+function toast(t){const e=$('toast');e.textContent=t;e.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>{e.hidden=true},1800);}
+async function copyText(t,done){
+  if(!String(t||'').trim()){toast('복사할 내용이 없습니다.');return false;}
+  try{await navigator.clipboard.writeText(t);}catch(e){const a=document.createElement('textarea');a.value=t;document.body.appendChild(a);a.select();let ok=false;try{ok=document.execCommand('copy');}catch(x){}a.remove();if(!ok){toast('복사가 차단되었습니다. 직접 선택해 복사하세요.');return false;}}
+  toast(done||'복사했습니다.');return true;
+}
+const leadOf=()=>S.leads.find(x=>x.id===(V.name==='lead'?V.id:V.open));
+function dirty(l){l.crmSynced=false;const p=$('sync-pill');if(p)p.textContent='CRM 미반영';}
+function backup(){const u=URL.createObjectURL(new Blob([JSON.stringify(S,null,1)],{type:'application/json'}));const a=document.createElement('a');a.href=u;a.download='lead-desk-backup-'+today()+'.json';document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),2000);S.lastBackup=new Date().toISOString();persist();render();toast('백업 파일을 저장했습니다.');}
+document.addEventListener('click',async ev=>{
+  const b=ev.target.closest('[data-act]');if(!b)return;
+  const a=b.dataset.act,l=leadOf(),i=+b.dataset.i;
+  if(a!=='del')V.armed=null;
+  switch(a){
+    case 'go':V.name=b.dataset.v;render();scrollTo(0,0);break;
+    case 'tab':V.tab=b.dataset.t;V.open=null;render();break;
+    case 'toggle':V.open=V.open===b.dataset.id?null:b.dataset.id;render();break;
+    case 'entry':V.entry=!V.entry;render();break;
+    case 'sample':V.draft=SAMPLE;$('draft').value=V.draft;$('pv').innerHTML=previewHtml();break;
+    case 'clear-ex':S.leads=S.leads.filter(x=>!x.example);persist();render();break;
+    case 'register':{const p=parseLead(V.draft);if(!p.company)break;S.leads=S.leads.filter(x=>!x.example);const n=buildLead(p);S.leads.unshift(n);V.draft='';V.entry=false;V.open=n.id;V.tab='전체';persist();render();toast('등록했습니다.');break;}
+    case 'open':V.name='lead';V.id=b.dataset.id;V.fuBody='';render();scrollTo(0,0);break;
+    case 'svc':{const s=b.dataset.s;l.services=l.services.includes(s)?l.services.filter(x=>x!==s):SERVICES.filter(x=>l.services.includes(x)||x===s);persist();render();break;}
+    case 'req-cat':{const r=l.requests[i],s=b.dataset.s;r.cats=r.cats.includes(s)?r.cats.filter(x=>x!==s):SERVICES.filter(x=>r.cats.includes(x)||x===s);persist();render();break;}
+    case 'req-copy':copyText(l.requests.map((r,n)=>(n+1)+'. '+r.text+'\n→ '+r.status+(r.answer?': '+r.answer:'')).join('\n'));break;
+    case 'del':if(V.armed==='del'){S.leads=S.leads.filter(x=>x.id!==l.id);V.armed=null;V.open=null;persist();}else V.armed='del';render();break;
+    case 'hint':l.crm[b.dataset.k]=b.dataset.v;$('f-'+b.dataset.k).value=b.dataset.v;dirty(l);save();break;
+    case 'copy-f':if(await copyText(l.crm[b.dataset.k])){(copied[l.id]=copied[l.id]||{})[b.dataset.k]=1;$('row-'+b.dataset.k).classList.add('done');b.textContent='완료';}break;
+    case 'reset-copy':delete copied[l.id];render();break;
+    case 'synced':l.crmSynced=true;l.followups.forEach(f=>f.synced=true);persist();render();toast('CRM 반영 완료로 표시했습니다.');break;
+    case 'fu-add':if(!V.fuBody.trim()&&!V.fuAct.trim()){toast('내용을 입력하세요.');break;}l.followups.unshift({type:V.fuType,date:V.fuDate,text:fuText(),synced:false});V.fuBody='';persist();render();toast('기록을 추가했습니다.');break;
+    case 'fu-copy':copyText(fuText());break;
+    case 'fu-copy-i':copyText(l.followups[i].text);break;
+    case 'fu-sync':l.followups[i].synced=!l.followups[i].synced;persist();render();break;
+    case 'fu-del':l.followups.splice(i,1);persist();render();break;
+    case 'backup':backup();break;
+    case 'restore-ok':S=V.restore;S.owner=S.owner||'';V.restore=null;persist();render();toast('복원했습니다.');break;
+    case 'restore-no':V.restore=null;render();break;
+  }
+});
+const FU_ACT={이메일:'메일 발송',전화:'유선 통화',미팅:'미팅 진행',기타:''};
+document.addEventListener('input',e=>{
+  const t=e.target,d=t.dataset;
+  if(t.id==='draft'){V.draft=t.value;$('pv').innerHTML=previewHtml();return;}
+  if(d.v2){S[d.v2]=t.value;save();return;}
+  if(d.v){V[d.v]=t.value;if(d.v==='fuType'){V.fuAct=FU_ACT[t.value]||'';$('fu-act').value=V.fuAct;}const p=$('fu-pv');if(p)p.textContent=fuText();return;}
+  const l=leadOf();if(!l)return;
+  if(d.f){l.crm[d.f]=t.value;dirty(l);save();return;}
+  if(d.l){if(t.type==='checkbox')return;l[d.l][+d.i][d.k]=t.value;save();}
+});
+document.addEventListener('change',e=>{
+  const t=e.target;
+  if(t.id==='restore-file'){const f=t.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{try{const o=JSON.parse(r.result);if(!o||!Array.isArray(o.leads))throw 0;V.restore=o;render();}catch(x){toast('리드 데스크 백업 파일이 아닙니다.');}};r.readAsText(f);return;}
+  if(t.type==='checkbox'&&t.dataset.l){const l=leadOf();l[t.dataset.l][+t.dataset.i][t.dataset.k]=t.checked;persist();render();return;}
+  if(t.dataset.f==='stage'||t.dataset.f==='nextDate'){persist();if(V.name==='home')render();}
+});
+render();
+</script>
+</body>
+</html>
