@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline' https://cdn.jsdelivr.net; font-src https://cdn.jsdelivr.net; img-src 'self' data:; manifest-src 'self'; worker-src 'self'; connect-src https://bberccestktirszcghlj.supabase.co; form-action 'none'; base-uri 'none'">
 <meta name="robots" content="noindex">
 <title>Sales Hub</title>
@@ -119,7 +119,35 @@ dt{color:var(--sub);font-size:13px}dd{margin:0;overflow-wrap:anywhere}
 .status{padding:14px 20px 0;font-size:12px;color:var(--faint);margin:0}
 #toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--blue-d);color:#fff;padding:7px 14px;border-radius:4px;z-index:20}
 @media (max-width:1100px){.tr{grid-template-columns:minmax(0,1fr) 180px 70px 20px}.tr>.c-lane,.tr>.c-req,.tr>.c-stage{display:none}.detail,.entry{grid-template-columns:minmax(0,1fr)}}
-@media (max-width:720px){.shell{grid-template-columns:minmax(0,1fr)}.rail{position:static;height:auto;display:flex;flex-wrap:wrap;padding:10px 0}.brand{width:100%;padding-bottom:6px}.nav{width:auto}main{padding:16px}.tr{grid-template-columns:minmax(0,1fr) 60px 20px}.tr>.c-tag{grid-row:2;grid-column:1/-1}.ctl,.two{grid-template-columns:minmax(0,1fr)}.f{grid-template-columns:minmax(0,1fr) 48px}.f label{grid-column:1/-1;padding:0}}
+.btn[aria-pressed="true"]{background:var(--blue);border-color:var(--blue);color:#fff}
+.mday{font-size:13px;font-weight:700;color:var(--blue-d);margin:8px 0 -6px}
+.mrow{display:grid;grid-template-columns:56px minmax(0,1fr) 20px;gap:12px;align-items:center;padding:13px 16px;width:100%;border:0;background:none;text-align:left;cursor:pointer}
+.mrow:hover{background:var(--blue-l2)}
+.row.open>.mrow{background:var(--blue-l)}
+.mtime{font-size:16px;font-weight:700;color:var(--blue-d)}
+.memo{margin:0;white-space:pre-wrap;overflow-wrap:anywhere}
+@media (max-width:720px){
+.shell{display:block}
+.rail{position:fixed;left:0;right:0;bottom:0;top:auto;height:auto;z-index:10;display:flex;padding:0 0 env(safe-area-inset-bottom);border-right:0;border-top:1px solid var(--line)}
+.rail:not(:has(.nav)){display:none}
+.brand,.status{display:none}
+.nav{flex:1;justify-content:center;gap:4px;padding:13px 4px 12px;border-left:0;border-top:3px solid transparent;font-size:14px}
+.nav[aria-current="page"]{border-left-color:transparent;border-top-color:var(--blue)}
+main{padding:calc(16px + env(safe-area-inset-top)) 16px calc(84px + env(safe-area-inset-bottom))}
+input,select,textarea{font-size:16px;height:42px}
+textarea{height:auto}
+input[type=checkbox]{height:16px}
+.btn{height:40px;padding:0 14px}.btn.sm{height:34px;padding:0 10px}.tog{height:40px}
+.tabs{flex-wrap:nowrap;overflow-x:auto}.tab{white-space:nowrap}
+.tr{grid-template-columns:minmax(0,1fr) 60px 20px}.tr>.c-tag{grid-row:2;grid-column:1/-1}.th{display:none}
+.ctl,.two{grid-template-columns:minmax(0,1fr)}
+.req .bar{flex-wrap:wrap}.req select{width:100px;height:36px}.req input{height:36px;font-size:16px;flex:1 1 140px}.chk input.ans{height:36px;font-size:16px}
+.mini button{height:32px;width:34px}
+.f{grid-template-columns:minmax(0,1fr) 52px}.f label{grid-column:1/-1;padding:0}
+.acts{flex-wrap:wrap}
+.login{margin-top:32px}
+#toast{bottom:calc(76px + env(safe-area-inset-bottom));max-width:calc(100% - 32px)}
+}
 </style>
 </head>
 <body>
@@ -240,7 +268,7 @@ function persist(){if(sess)S.pendingSync=true;writeLocal();sync();}
 /* Supabase: 공개용 키만 사용. 접근 제어는 DB의 RLS가 담당한다 */
 const SB_URL='https://bberccestktirszcghlj.supabase.co',SB_KEY='sb_publishable_gRT8h0lk59bwauqq76uwtg_RcfE25m_',SESS='sales-hub-session';
 let sess=null,loaded=false,syncing=false,syncAgain=false,syncErr=false,syncTimer=0;
-let synced={lead:{},settings:''};
+let synced={lead:{},settings:'',meet:{}};
 function setSess(s){sess=s;try{if(s)localStorage.setItem(SESS,JSON.stringify(s));else localStorage.removeItem(SESS);}catch(e){}}
 async function authCall(path,body){
   const r=await fetch(SB_URL+'/auth/v1/'+path,{method:'POST',headers:{apikey:SB_KEY,'Content-Type':'application/json'},body:JSON.stringify(body)});
@@ -277,7 +305,12 @@ async function sync(){
     if(del.length)await rest('leads?id=in.('+del.map(encodeURIComponent).join(',')+')',{method:'DELETE',headers:{Prefer:'return=minimal'}});
     const st=settingsJson();
     if(st!==synced.settings)await rest('app_settings',{method:'POST',headers:UPSERT,body:JSON.stringify([{key:'main',value:JSON.parse(st),updated_at:stamp}])});
-    synced={lead:now,settings:st};
+    const mNow={};S.meetings.forEach(m=>{mNow[m.id]=JSON.stringify(mRow(m));});
+    const mUp=Object.keys(mNow).filter(id=>mNow[id]!==synced.meet[id]).map(id=>Object.assign(JSON.parse(mNow[id]),{updated_at:stamp}));
+    const mDel=Object.keys(synced.meet).filter(id=>!(id in mNow));
+    if(mUp.length)await rest('meetings',{method:'POST',headers:UPSERT,body:JSON.stringify(mUp)});
+    if(mDel.length)await rest('meetings?id=in.('+mDel.map(encodeURIComponent).join(',')+')',{method:'DELETE',headers:{Prefer:'return=minimal'}});
+    synced={lead:now,settings:st,meet:mNow};
     S.pendingSync=false;syncErr=false;writeLocal();
   }catch(e){syncErr=true;syncTimer=setTimeout(sync,30000);}
   syncing=false;
@@ -288,6 +321,10 @@ function setStatus(){const e=$('sync-status');if(e)e.textContent=syncErr?'서버
 async function loadServer(){
   const rows=await rest('leads?select=id,data');
   const st=await rest('app_settings?key=eq.main&select=value');
+  const mr=await rest('meetings?select=id,company,starts_at,place,memo,reminders');
+  const srv=mr.map(r=>Object.assign({id:r.id,company:r.company,place:r.place||'',memo:r.memo||'',reminders:r.reminders||[]},fromIso(r.starts_at)));
+  synced.meet={};srv.forEach(m=>{synced.meet[m.id]=JSON.stringify(mRow(m));});
+  if(S.pendingSync){const ids=new Set(S.meetings.map(m=>m.id));S.meetings=S.meetings.concat(srv.filter(m=>!ids.has(m.id)));}else S.meetings=srv;
   const localReal=S.leads.filter(l=>!l.example);
   if(rows.length&&!(S.pendingSync&&localReal.length)){
     S.leads=rows.map(r=>r.data).sort((a,b)=>String(b.created||'').localeCompare(String(a.created||'')));
@@ -303,9 +340,10 @@ async function boot(){
   try{sess=JSON.parse(localStorage.getItem(SESS)||'null');}catch(e){sess=null;}
   if(!sess){V.name='login';render();return;}
   V.name='loading';render();
-  try{await loadServer();V.name='home';}
-  catch(e){if(e.status===401||e.status===400){setSess(null);V.name='login';V.loginErr='다시 로그인해 주세요.';}else{V.name='home';syncErr=true;}}
+  try{await loadServer();V.name=landing();}
+  catch(e){if(e.status===401||e.status===400){setSess(null);V.name='login';V.loginErr='다시 로그인해 주세요.';}else{V.name=landing();syncErr=true;}}
   render();
+  refreshPush();
 }
 function save(){clearTimeout(saveT);saveT=setTimeout(persist,200);}
 window.addEventListener('pagehide',persist);
@@ -317,6 +355,7 @@ if(!S){
   S={leads:[],lastBackup:null,owner:''};
   [SAMPLE,SAMPLE2].forEach((t,i)=>{const e=buildLead(parseLead(t));e.id='EX'+i;e.example=true;if(!i){e.crm.nextDate=addDays(-1);e.crm.nextAction='회사소개서 회신 확인';e.crm.stage='초기 접촉';}S.leads.push(e);});
 }
+S.meetings=S.meetings||[];
 const $=id=>document.getElementById(id);
 const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 let V={name:'home',id:null,tab:'전체',open:null,entry:false,draft:'',armed:null,restore:null,fuType:'이메일',fuDate:today(),fuAct:'메일 발송',fuBody:''};
@@ -328,7 +367,7 @@ const tagHtml=s=>`<span class="tag t-${s}">${s}</span>`;
 function nav(){
   const n=S.leads.filter(l=>!isClosed(l)).length;
   if(V.name==='login'||V.name==='loading'){$('rail').innerHTML='<div class="brand">Sales Hub</div>';return;}
-  $('rail').innerHTML='<div class="brand">Sales Hub</div>'+[['home','신규 업체',n],['data','설정·백업','']].map(([k,t,c])=>`<button class="nav" data-act="go" data-v="${k}" ${V.name===k||(k==='home'&&V.name==='lead')?'aria-current="page"':''}><span>${t}</span><span>${c}</span></button>`).join('')+`<p class="status" id="sync-status">${syncErr?'서버 저장 실패 · 30초 후 재시도':'서버에 저장됨'}</p>`;
+  $('rail').innerHTML='<div class="brand">Sales Hub</div>'+[['home','신규 업체',n],['meetings','미팅',upcoming().length||''],['data','설정·백업','']].map(([k,t,c])=>`<button class="nav" data-act="go" data-v="${k}" ${V.name===k||(k==='home'&&V.name==='lead')?'aria-current="page"':''}><span>${t}</span><span>${c}</span></button>`).join('')+`<p class="status" id="sync-status">${syncErr?'서버 저장 실패 · 30초 후 재시도':'서버에 저장됨'}</p>`;
 }
 function inTab(l,t){if(t==='종결')return isClosed(l);if(isClosed(l))return false;if(t==='전체')return true;if(t==='미분류')return !l.services.length;return l.services.includes(t);}
 function entryHtml(){
@@ -395,7 +434,85 @@ function viewData(){
 }
 function viewLogin(){return `<section class="panel login"><h1>로그인</h1><form id="login-form"><div><label class="lb" for="login-email">이메일</label><input id="login-email" type="email" autocomplete="username" required></div><div><label class="lb" for="login-pw">비밀번호</label><input id="login-pw" type="password" autocomplete="current-password" required></div>${V.loginErr?`<p class="err">${esc(V.loginErr)}</p>`:''}<button class="btn primary" type="submit">로그인</button></form></section>`;}
 function viewLoading(){return '<div class="empty">불러오는 중입니다.</div>';}
-function render(){nav();$('view').innerHTML=({home:viewHome,lead:viewLead,data:viewData,login:viewLogin,loading:viewLoading}[V.name]||viewHome)();}
+/* 미팅: 시각은 한국시간 기준으로 입력·표시하고 서버에는 절대시각으로 저장한다 */
+const REM=[[-1,'전날 18시'],[120,'2시간 전'],[60,'1시간 전'],[30,'30분 전'],[10,'10분 전']],REM_DEF=[-1,60],KST_OFF=9*36e5;
+const landing=()=>matchMedia('(max-width:720px)').matches?'meetings':'home';
+function fromIso(iso){const s=new Date(new Date(iso).getTime()+KST_OFF).toISOString();return {date:s.slice(0,10),time:s.slice(11,16)};}
+const mRow=m=>({id:m.id,company:m.company,starts_at:new Date(m.date+'T'+m.time+':00+09:00').toISOString(),place:m.place,memo:m.memo,reminders:m.reminders});
+const mKey=m=>m.date+'T'+m.time;
+function kstNow(){const t=fromIso(new Date().toISOString());return t.date+'T'+t.time;}
+const upcoming=()=>{const k=kstNow();return S.meetings.filter(m=>mKey(m)>=k).sort((a,b)=>mKey(a).localeCompare(mKey(b)));};
+function dayLabel(date){const d=new Date(date+'T00:00:00Z'),n=Math.round((d-new Date(kstNow().slice(0,10)+'T00:00:00Z'))/864e5),b=(d.getUTCMonth()+1)+'/'+d.getUTCDate()+'('+'일월화수목금토'[d.getUTCDay()]+')';return n===0?'오늘 · '+b:n===1?'내일 · '+b:b;}
+const remText=a=>REM.filter(r=>a.includes(r[0])).map(r=>r[1]).join(', ')||'알림 없음';
+function mForm(){
+  const f=V.mForm,names=[...new Set(S.leads.filter(l=>!l.example).map(l=>l.crm.nameKo).filter(Boolean))];
+  return `<section class="panel"><h2>${f.id?'미팅 수정':'미팅 등록'}</h2><div class="form2"><div class="wide"><label class="lb" for="m-co">업체명</label><input id="m-co" data-m="company" list="m-names" value="${esc(f.company)}"><datalist id="m-names">${names.map(x=>`<option value="${esc(x)}">`).join('')}</datalist></div><div><label class="lb" for="m-date">날짜</label><input id="m-date" type="date" data-m="date" value="${esc(f.date)}"></div><div><label class="lb" for="m-time">시간</label><input id="m-time" type="time" data-m="time" value="${esc(f.time)}"></div><div class="wide"><label class="lb" for="m-place">장소</label><input id="m-place" data-m="place" value="${esc(f.place)}"></div><div class="wide"><label class="lb" for="m-memo">메모</label><textarea id="m-memo" data-m="memo">${esc(f.memo)}</textarea></div><div class="wide"><span class="lb">알림</span><div class="hints">${REM.map(([c,t])=>`<button class="btn sm" data-act="m-rem" data-c="${c}" aria-pressed="${f.reminders.includes(c)}">${t}</button>`).join('')}</div></div></div><div class="acts"><button class="btn" data-act="m-cancel">취소</button><button class="btn primary" data-act="m-save">저장</button></div></section>`;
+}
+function mItem(m){const o=V.mOpen===m.id;return `<div class="row ${o?'open':''}"><button class="mrow" data-act="m-toggle" data-id="${esc(m.id)}" aria-expanded="${o}"><span class="mtime">${esc(m.time)}</span><span class="co">${esc(m.company)}<small>${esc([m.place,remText(m.reminders)].filter(Boolean).join(' · '))}</small></span><span class="chev" aria-hidden="true">▾</span></button>${o?`<div class="drop">${m.memo?`<p class="memo">${esc(m.memo)}</p>`:'<p class="note">메모가 없습니다.</p>'}<div class="acts"><button class="link" data-act="m-del" data-id="${esc(m.id)}">${V.armed==='del'?'한 번 더 누르면 삭제됩니다':'삭제'}</button><button class="btn" data-act="m-edit" data-id="${esc(m.id)}">수정</button></div></div>`:''}</div>`;}
+function mGroups(list){const out=[];let day='';list.forEach(m=>{if(m.date!==day){day=m.date;out.push(`<p class="mday">${esc(dayLabel(day))}</p>`,'<div class="table">');}out.push(mItem(m));if(!list[list.indexOf(m)+1]||list[list.indexOf(m)+1].date!==day)out.push('</div>');});return out.join('');}
+function viewMeetings(){
+  const up=upcoming(),k=kstNow(),past=S.meetings.filter(m=>mKey(m)<k).sort((a,b)=>mKey(b).localeCompare(mKey(a)));
+  return `<div class="head"><h1>미팅</h1><button class="btn primary" data-act="m-new">+ 미팅 등록</button></div>
+  <div id="push-box">${pushHtml()}</div>
+  ${syncErr?'<div class="notice">서버에 저장하지 못했습니다. 자동으로 다시 시도합니다. 저장되기 전까지 알림이 발송되지 않습니다.</div>':''}
+  ${V.mForm?mForm():''}
+  ${mGroups(up)||'<div class="table"><div class="empty">예정된 미팅이 없습니다.</div></div>'}
+  ${past.length?`<div><button class="link" data-act="m-past">${V.mPast?'지난 미팅 접기':'지난 미팅 '+past.length+'건 보기'}</button></div>${V.mPast?mGroups(past):''}`:''}`;
+}
+/* 웹 푸시 구독: 서버는 등록된 기기 전체로 발송한다 */
+const FN=SB_URL+'/functions/v1/push';
+const PUSH={state:'checking',busy:false};
+function swReady(){return Promise.race([navigator.serviceWorker.ready,new Promise((_,x)=>setTimeout(()=>x(new Error('sw')),4000))]);}
+function pushHtml(){
+  const p=PUSH.state,d=PUSH.busy?'disabled':'';
+  if(p==='checking')return '';
+  if(p==='install')return '<div class="notice">알림을 받으려면 Safari 공유 버튼에서 「홈 화면에 추가」 후, 홈 화면의 Sales Hub 아이콘으로 실행해 주세요.</div>';
+  if(p==='unsupported')return '<div class="notice">이 브라우저는 푸시 알림을 지원하지 않습니다.</div>';
+  if(p==='denied')return '<div class="notice">이 기기에서 알림이 차단되어 있습니다. 휴대폰 설정의 알림 항목에서 Sales Hub를 허용해 주세요.</div>';
+  if(p==='on')return `<div class="notice"><span>이 기기로 미팅 알림을 받습니다.</span><span class="acts"><button class="btn sm" data-act="p-test" ${d}>테스트 알림</button><button class="btn sm" data-act="p-off" ${d}>끄기</button></span></div>`;
+  return `<div class="notice"><span>이 기기의 알림이 꺼져 있습니다.</span><button class="btn sm primary" data-act="p-on" ${d}>알림 켜기</button></div>`;
+}
+function paintPush(){const e=$('push-box');if(e)e.innerHTML=pushHtml();}
+async function saveSub(sub){const j=sub.toJSON();await rest('push_subscriptions',{method:'POST',headers:UPSERT,body:JSON.stringify([{endpoint:j.endpoint,p256dh:j.keys.p256dh,auth:j.keys.auth,device:navigator.userAgent.slice(0,120)}])});}
+async function refreshPush(){
+  const std=matchMedia('(display-mode: standalone)').matches||navigator.standalone===true,ios=/iPhone|iPad|iPod/.test(navigator.userAgent);
+  if(!('serviceWorker' in navigator)||!('PushManager' in window)||!('Notification' in window))PUSH.state=ios&&!std?'install':'unsupported';
+  else if(Notification.permission==='denied')PUSH.state='denied';
+  else try{const sub=await (await swReady()).pushManager.getSubscription();PUSH.state=sub?'on':'off';if(sub&&sess)saveSub(sub).catch(()=>{});}catch(e){PUSH.state='unsupported';}
+  paintPush();
+}
+function b64bytes(s){const b=atob(s.replace(/-/g,'+').replace(/_/g,'/'));return Uint8Array.from(b,c=>c.charCodeAt(0));}
+async function pushOn(){
+  PUSH.busy=true;paintPush();
+  try{
+    const perm=await Notification.requestPermission();
+    if(perm!=='granted'){PUSH.state=perm==='denied'?'denied':'off';return;}
+    const r=await fetch(FN);if(!r.ok)throw new Error('key');
+    const key=(await r.json()).publicKey;
+    const reg=await swReady();
+    const sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:b64bytes(key)});
+    await saveSub(sub);PUSH.state='on';toast('알림을 켰습니다. 테스트 알림으로 확인해 주세요.');
+  }catch(e){toast('알림을 켜지 못했습니다.');}
+  finally{PUSH.busy=false;paintPush();}
+}
+async function pushOff(){
+  PUSH.busy=true;paintPush();
+  try{const sub=await (await swReady()).pushManager.getSubscription();if(sub){await rest('push_subscriptions?endpoint=eq.'+encodeURIComponent(sub.endpoint),{method:'DELETE',headers:{Prefer:'return=minimal'}});await sub.unsubscribe();}PUSH.state='off';toast('알림을 껐습니다.');}
+  catch(e){toast('알림을 끄지 못했습니다.');}
+  finally{PUSH.busy=false;paintPush();}
+}
+async function pushTest(){
+  PUSH.busy=true;paintPush();
+  try{
+    const t=await token();
+    const r=await fetch(FN,{method:'POST',headers:{apikey:SB_KEY,Authorization:'Bearer '+t,'Content-Type':'application/json'},body:'{"test":true}'});
+    if(!r.ok)throw new Error('fn');
+    const a=(await r.json()).results||[],ok=a.filter(s=>s>=200&&s<300).length;
+    toast(ok?'발송했습니다. 등록 기기 '+ok+'대':'발송 실패 ('+(a.join(',')||'등록 기기 없음')+')');
+  }catch(e){toast('발송 서버에 연결하지 못했습니다.');}
+  finally{PUSH.busy=false;paintPush();}
+}
+function render(){nav();$('view').innerHTML=({home:viewHome,lead:viewLead,meetings:viewMeetings,data:viewData,login:viewLogin,loading:viewLoading}[V.name]||viewHome)();}
 document.addEventListener('submit',async e=>{
   if(e.target.id!=='login-form')return;
   e.preventDefault();
@@ -404,13 +521,14 @@ document.addEventListener('submit',async e=>{
     keepSess(await authCall('token?grant_type=password',{email:$('login-email').value.trim(),password:$('login-pw').value}));
     V.name='loading';render();
     await loadServer();
-    V.name='home';
+    V.name=landing();
   }catch(x){
     if(x.status===400||x.status===401){setSess(null);V.name='login';V.loginErr='이메일 또는 비밀번호가 맞지 않습니다.';}
-    else if(sess){V.name='home';syncErr=true;}
+    else if(sess){V.name=landing();syncErr=true;}
     else{V.name='login';V.loginErr='서버에 연결할 수 없습니다. 네트워크를 확인해 주세요.';}
   }
   render();
+  if(sess)refreshPush();
 });
 function toast(t){const e=$('toast');e.textContent=t;e.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>{e.hidden=true},1800);}
 async function copyText(t,done){
@@ -424,8 +542,19 @@ function backup(){const u=URL.createObjectURL(new Blob([JSON.stringify(S,null,1)
 document.addEventListener('click',async ev=>{
   const b=ev.target.closest('[data-act]');if(!b)return;
   const a=b.dataset.act,l=leadOf(),i=+b.dataset.i;
-  if(a!=='del')V.armed=null;
+  if(a!=='del'&&a!=='m-del')V.armed=null;
   switch(a){
+    case 'm-new':V.mForm={company:'',date:addDays(1),time:'',place:'',memo:'',reminders:REM_DEF.slice()};render();scrollTo(0,0);break;
+    case 'm-edit':{const m=S.meetings.find(x=>x.id===b.dataset.id);if(m){V.mForm=JSON.parse(JSON.stringify(m));render();scrollTo(0,0);}break;}
+    case 'm-cancel':V.mForm=null;render();break;
+    case 'm-rem':{const c=+b.dataset.c,f=V.mForm;f.reminders=f.reminders.includes(c)?f.reminders.filter(x=>x!==c):REM.map(r=>r[0]).filter(x=>f.reminders.includes(x)||x===c);render();break;}
+    case 'm-save':{const f=V.mForm;if(!f.company.trim()||!f.date||!f.time){toast('업체명·날짜·시간을 입력해 주세요.');break;}f.company=f.company.trim();if(f.id){const n=S.meetings.findIndex(x=>x.id===f.id);if(n>=0)S.meetings[n]=f;}else{f.id='M'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);S.meetings.push(f);}V.mForm=null;V.mOpen=null;persist();render();toast('저장했습니다.');break;}
+    case 'm-toggle':V.mOpen=V.mOpen===b.dataset.id?null:b.dataset.id;render();break;
+    case 'm-del':if(V.armed==='del'){S.meetings=S.meetings.filter(x=>x.id!==b.dataset.id);V.armed=null;V.mOpen=null;persist();}else V.armed='del';render();break;
+    case 'm-past':V.mPast=!V.mPast;render();break;
+    case 'p-on':pushOn();break;
+    case 'p-off':pushOff();break;
+    case 'p-test':pushTest();break;
     case 'go':V.name=b.dataset.v;render();scrollTo(0,0);break;
     case 'tab':V.tab=b.dataset.t;V.open=null;render();break;
     case 'toggle':V.open=V.open===b.dataset.id?null:b.dataset.id;render();break;
@@ -449,13 +578,14 @@ document.addEventListener('click',async ev=>{
     case 'fu-del':l.followups.splice(i,1);persist();render();break;
     case 'backup':backup();break;
     case 'logout':setSess(null);try{localStorage.removeItem(KEY);}catch(e){}location.reload();break;
-    case 'restore-ok':S=V.restore;S.owner=S.owner||'';V.restore=null;persist();render();toast('복원했습니다.');break;
+    case 'restore-ok':S=V.restore;S.owner=S.owner||'';S.meetings=S.meetings||[];V.restore=null;persist();render();toast('복원했습니다.');break;
     case 'restore-no':V.restore=null;render();break;
   }
 });
 const FU_ACT={이메일:'메일 발송',전화:'유선 통화',미팅:'미팅 진행',기타:''};
 document.addEventListener('input',e=>{
   const t=e.target,d=t.dataset;
+  if(d.m){V.mForm[d.m]=t.value;return;}
   if(t.id==='draft'){V.draft=t.value;$('pv').innerHTML=previewHtml();return;}
   if(d.v2){S[d.v2]=t.value;save();return;}
   if(d.v){V[d.v]=t.value;if(d.v==='fuType'){V.fuAct=FU_ACT[t.value]||'';$('fu-act').value=V.fuAct;}const p=$('fu-pv');if(p)p.textContent=fuText();return;}
@@ -468,6 +598,10 @@ document.addEventListener('change',e=>{
   if(t.id==='restore-file'){const f=t.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{try{const o=JSON.parse(r.result);if(!o||!Array.isArray(o.leads))throw 0;V.restore=o;render();}catch(x){toast('Sales Hub 백업 파일이 아닙니다.');}};r.readAsText(f);return;}
   if(t.type==='checkbox'&&t.dataset.l){const l=leadOf();l[t.dataset.l][+t.dataset.i][t.dataset.k]=t.checked;persist();render();return;}
   if(t.dataset.f==='stage'||t.dataset.f==='nextDate'){persist();if(V.name==='home')render();}
+});
+document.addEventListener('visibilitychange',async()=>{
+  if(document.visibilityState!=='visible'||!sess||!loaded||S.pendingSync||V.mForm||V.entry||!['home','meetings'].includes(V.name))return;
+  try{await loadServer();render();}catch(e){}
 });
 try{if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});}catch(e){}
 boot();
