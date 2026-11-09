@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline' https://cdn.jsdelivr.net; font-src https://cdn.jsdelivr.net; img-src data:; connect-src 'none'; form-action 'none'; base-uri 'none'">
 <meta name="robots" content="noindex">
-<title>리드 데스크</title>
+<title>Sales Hub</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
 <style>
 :root{
@@ -246,7 +246,7 @@ function dday(d){if(!d)return {t:'—',c:'none'};const n=Math.round((new Date(d+
 const tagHtml=s=>`<span class="tag t-${s}">${s}</span>`;
 function nav(){
   const n=S.leads.filter(l=>!isClosed(l)).length;
-  $('rail').innerHTML='<div class="brand">리드 데스크</div>'+[['home','신규 업체',n],['data','설정·백업','']].map(([k,t,c])=>`<button class="nav" data-act="go" data-v="${k}" ${V.name===k||(k==='home'&&V.name==='lead')?'aria-current="page"':''}><span>${t}</span><span>${c}</span></button>`).join('');
+  $('rail').innerHTML='<div class="brand">Sales Hub</div>'+[['home','신규 업체',n],['data','설정·백업','']].map(([k,t,c])=>`<button class="nav" data-act="go" data-v="${k}" ${V.name===k||(k==='home'&&V.name==='lead')?'aria-current="page"':''}><span>${t}</span><span>${c}</span></button>`).join('');
 }
 function inTab(l,t){if(t==='종결')return isClosed(l);if(isClosed(l))return false;if(t==='전체')return true;if(t==='미분류')return !l.services.length;return l.services.includes(t);}
 function entryHtml(){
@@ -365,7 +365,7 @@ document.addEventListener('input',e=>{
 });
 document.addEventListener('change',e=>{
   const t=e.target;
-  if(t.id==='restore-file'){const f=t.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{try{const o=JSON.parse(r.result);if(!o||!Array.isArray(o.leads))throw 0;V.restore=o;render();}catch(x){toast('리드 데스크 백업 파일이 아닙니다.');}};r.readAsText(f);return;}
+  if(t.id==='restore-file'){const f=t.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{try{const o=JSON.parse(r.result);if(!o||!Array.isArray(o.leads))throw 0;V.restore=o;render();}catch(x){toast('Sales Hub 백업 파일이 아닙니다.');}};r.readAsText(f);return;}
   if(t.type==='checkbox'&&t.dataset.l){const l=leadOf();l[t.dataset.l][+t.dataset.i][t.dataset.k]=t.checked;persist();render();return;}
   if(t.dataset.f==='stage'||t.dataset.f==='nextDate'){persist();if(V.name==='home')render();}
 });
