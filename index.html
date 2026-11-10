@@ -126,6 +126,30 @@ dt{color:var(--sub);font-size:13px}dd{margin:0;overflow-wrap:anywhere}
 .row.open>.mrow{background:var(--blue-l)}
 .mtime{font-size:16px;font-weight:700;color:var(--blue-d)}
 .memo{margin:0;white-space:pre-wrap;overflow-wrap:anywhere}
+.mlab{font-size:12px;font-weight:600;color:var(--sub)}
+.calwrap{display:grid;grid-template-columns:minmax(0,1fr);gap:14px;align-items:start}
+.caldays{display:flex;flex-direction:column;gap:14px;min-width:0}
+.caldays .mday{margin:0 0 -6px}
+.calh{display:flex;align-items:center;gap:6px}
+.calh h2{font-size:15px;margin-right:auto}
+.calg{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));border-top:1px solid var(--line2);border-left:1px solid var(--line2)}
+.cw{font-size:12px;color:var(--sub);text-align:center;padding:5px 0;border-right:1px solid var(--line2);border-bottom:1px solid var(--line2);background:var(--blue-l2)}
+.cd{min-height:96px;min-width:0;padding:5px;border:0;border-right:1px solid var(--line2);border-bottom:1px solid var(--line2);background:#fff;text-align:left;display:flex;flex-direction:column;gap:2px;cursor:pointer}
+.cd:hover{background:var(--blue-l2)}
+.cd.out{background:var(--bg)}.cd.out .cn{color:var(--faint)}
+.cd[aria-pressed="true"]{background:var(--blue-l);box-shadow:inset 0 0 0 1px var(--blue)}
+.cn{font-size:12px;width:22px;height:22px;line-height:22px;text-align:center;border-radius:50%;flex:none}
+.cd.today .cn{background:var(--blue);color:#fff;font-weight:700}
+.ce{font-size:11px;line-height:16px;padding:0 4px;border-radius:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ce.m{background:var(--blue-l);color:var(--blue-d);font-weight:600}
+.cd[aria-pressed="true"] .ce.m{background:#fff}
+.ce.f{background:var(--line2);color:var(--sub)}
+.cmore{font-size:11px;color:var(--faint);padding:0 4px}
+.cdots{display:none;gap:3px;justify-content:center}
+.dot{width:6px;height:6px;border-radius:50%;display:inline-block}
+.dot.m{background:var(--blue)}.dot.f{background:var(--faint)}
+.legend{display:flex;gap:12px;font-size:12px;color:var(--sub)}.legend span{display:inline-flex;align-items:center;gap:4px}
+@media (min-width:1101px){.calwrap{grid-template-columns:minmax(0,1fr) 340px}}
 @media (max-width:720px){
 .shell{display:block}
 .rail{position:fixed;left:0;right:0;bottom:0;top:auto;height:auto;z-index:10;display:flex;padding:0 0 env(safe-area-inset-bottom);border-right:0;border-top:1px solid var(--line)}
@@ -146,6 +170,10 @@ input[type=checkbox]{height:16px}
 .f{grid-template-columns:minmax(0,1fr) 52px}.f label{grid-column:1/-1;padding:0}
 .acts{flex-wrap:wrap}
 .login{margin-top:32px}
+.panel.cal{padding:12px 8px}
+.cd{min-height:54px;align-items:center;padding:4px 0}
+.ce,.cmore{display:none}
+.cdots{display:flex}
 #toast{bottom:calc(76px + env(safe-area-inset-bottom));max-width:calc(100% - 32px)}
 }
 </style>
@@ -367,7 +395,7 @@ const tagHtml=s=>`<span class="tag t-${s}">${s}</span>`;
 function nav(){
   const n=S.leads.filter(l=>!isClosed(l)).length;
   if(V.name==='login'||V.name==='loading'){$('rail').innerHTML='<div class="brand">Sales Hub</div>';return;}
-  $('rail').innerHTML='<div class="brand">Sales Hub</div>'+[['home','신규 업체',n],['meetings','미팅',upcoming().length||''],['data','설정·백업','']].map(([k,t,c])=>`<button class="nav" data-act="go" data-v="${k}" ${V.name===k||(k==='home'&&V.name==='lead')?'aria-current="page"':''}><span>${t}</span><span>${c}</span></button>`).join('')+`<p class="status" id="sync-status">${syncErr?'서버 저장 실패 · 30초 후 재시도':'서버에 저장됨'}</p>`;
+  $('rail').innerHTML='<div class="brand">Sales Hub</div>'+[['home','신규 업체',n],['meetings','일정',upcoming().length||''],['data','설정·백업','']].map(([k,t,c])=>`<button class="nav" data-act="go" data-v="${k}" ${V.name===k||(k==='home'&&V.name==='lead')?'aria-current="page"':''}><span>${t}</span><span>${c}</span></button>`).join('')+`<p class="status" id="sync-status">${syncErr?'서버 저장 실패 · 30초 후 재시도':'서버에 저장됨'}</p>`;
 }
 function inTab(l,t){if(t==='종결')return isClosed(l);if(isClosed(l))return false;if(t==='전체')return true;if(t==='미분류')return !l.services.length;return l.services.includes(t);}
 function entryHtml(){
@@ -450,14 +478,39 @@ function mForm(){
 }
 function mItem(m){const o=V.mOpen===m.id;return `<div class="row ${o?'open':''}"><button class="mrow" data-act="m-toggle" data-id="${esc(m.id)}" aria-expanded="${o}"><span class="mtime">${esc(m.time)}</span><span class="co">${esc(m.company)}<small>${esc([m.place,remText(m.reminders)].filter(Boolean).join(' · '))}</small></span><span class="chev" aria-hidden="true">▾</span></button>${o?`<div class="drop">${m.memo?`<p class="memo">${esc(m.memo)}</p>`:'<p class="note">메모가 없습니다.</p>'}<div class="acts"><button class="link" data-act="m-del" data-id="${esc(m.id)}">${V.armed==='del'?'한 번 더 누르면 삭제됩니다':'삭제'}</button><button class="btn" data-act="m-edit" data-id="${esc(m.id)}">수정</button></div></div>`:''}</div>`;}
 function mGroups(list){const out=[];let day='';list.forEach(m=>{if(m.date!==day){day=m.date;out.push(`<p class="mday">${esc(dayLabel(day))}</p>`,'<div class="table">');}out.push(mItem(m));if(!list[list.indexOf(m)+1]||list[list.indexOf(m)+1].date!==day)out.push('</div>');});return out.join('');}
+/* 달력: 미팅과 진행 중 업체의 다음 팔로우업 날짜를 한 화면에 모은다 */
+function calEvents(){
+  const map={},add=(d,e)=>{(map[d]=map[d]||[]).push(e);};
+  S.meetings.forEach(m=>add(m.date,{k:'m',sort:m.time,m}));
+  S.leads.filter(l=>!l.example&&!isClosed(l)&&l.crm.nextDate).forEach(l=>add(l.crm.nextDate,{k:'f',sort:'99',l}));
+  Object.values(map).forEach(a=>a.sort((x,y)=>x.sort.localeCompare(y.sort)));
+  return map;
+}
+function fuItem(l){return `<div class="row"><button class="mrow" data-act="open" data-id="${esc(l.id)}"><span class="mlab">팔로우업</span><span class="co">${esc(l.crm.nameKo||'회사명 없음')}<small>${esc(l.crm.nextAction)||'다음 액션 미입력'}</small></span><span class="chev" aria-hidden="true">›</span></button></div>`;}
+const dayItems=a=>a.map(e=>e.k==='m'?mItem(e.m):fuItem(e.l)).join('');
+function calHtml(map){
+  const [y,mo]=V.calYm.split('-').map(Number),first=new Date(Date.UTC(y,mo-1,1)),lead=first.getUTCDay(),days=new Date(Date.UTC(y,mo,0)).getUTCDate(),cells=Math.ceil((lead+days)/7)*7,t=kstNow().slice(0,10);
+  let g='일월화수목금토'.split('').map(x=>`<div class="cw">${x}</div>`).join('');
+  for(let i=0;i<cells;i++){
+    const d=new Date(Date.UTC(y,mo-1,1-lead+i)),iso=d.toISOString().slice(0,10),a=map[iso]||[],out=d.getUTCMonth()!==mo-1;
+    const chips=a.slice(0,3).map(e=>e.k==='m'?`<span class="ce m">${esc(e.m.time)} ${esc(e.m.company)}</span>`:`<span class="ce f">${esc(e.l.crm.nameKo)}</span>`).join('');
+    const dots=a.slice(0,4).map(e=>`<span class="dot ${e.k}"></span>`).join('');
+    g+=`<button class="cd ${out?'out':''} ${iso===t?'today':''}" data-act="cal-day" data-d="${iso}" aria-pressed="${iso===V.calSel}" aria-label="${esc(iso)} 일정 ${a.length}건"><span class="cn">${d.getUTCDate()}</span>${chips}${a.length>3?`<span class="cmore">+${a.length-3}건</span>`:''}<span class="cdots">${dots}</span></button>`;
+  }
+  return `<section class="panel cal"><div class="calh"><h2>${y}년 ${mo}월</h2><button class="btn sm" data-act="cal-today">오늘</button><button class="btn sm" data-act="cal-move" data-n="-1" aria-label="이전 달">‹</button><button class="btn sm" data-act="cal-move" data-n="1" aria-label="다음 달">›</button></div><div class="calg">${g}</div><div class="legend"><span><i class="dot m"></i>미팅</span><span><i class="dot f"></i>팔로우업</span></div></section>`;
+}
 function viewMeetings(){
-  const up=upcoming(),k=kstNow(),past=S.meetings.filter(m=>mKey(m)<k).sort((a,b)=>mKey(b).localeCompare(mKey(a)));
-  return `<div class="head"><h1>미팅</h1><button class="btn primary" data-act="m-new">+ 미팅 등록</button></div>
+  const k=kstNow(),t=k.slice(0,10),map=calEvents(),mode=V.calMode||'cal',past=S.meetings.filter(m=>mKey(m)<k).sort((a,b)=>mKey(b).localeCompare(mKey(a)));
+  V.calSel=V.calSel||t;V.calYm=V.calYm||t.slice(0,7);
+  const none=x=>`<div class="table"><div class="empty">${x}</div></div>`;
+  const body=mode==='cal'
+    ?`<div class="calwrap">${calHtml(map)}<div class="caldays"><p class="mday">${esc(dayLabel(V.calSel))}</p>${(map[V.calSel]||[]).length?`<div class="table">${dayItems(map[V.calSel])}</div>`:none('이날 일정이 없습니다.')}</div></div>`
+    :(Object.keys(map).filter(d=>d>=t).sort().map(d=>`<p class="mday">${esc(dayLabel(d))}</p><div class="table">${dayItems(map[d])}</div>`).join('')||none('예정된 일정이 없습니다.'))+(past.length?`<div><button class="link" data-act="m-past">${V.mPast?'지난 미팅 접기':'지난 미팅 '+past.length+'건 보기'}</button></div>${V.mPast?mGroups(past):''}`:'');
+  return `<div class="head"><h1>일정</h1><span class="acts"><span class="seg"><button class="tog" data-act="cal-mode" data-mode="cal" aria-pressed="${mode==='cal'}">달력</button><button class="tog" data-act="cal-mode" data-mode="list" aria-pressed="${mode==='list'}">목록</button></span><button class="btn primary" data-act="m-new">+ 미팅 등록</button></span></div>
   <div id="push-box">${pushHtml()}</div>
   ${syncErr?'<div class="notice">서버에 저장하지 못했습니다. 자동으로 다시 시도합니다. 저장되기 전까지 알림이 발송되지 않습니다.</div>':''}
   ${V.mForm?mForm():''}
-  ${mGroups(up)||'<div class="table"><div class="empty">예정된 미팅이 없습니다.</div></div>'}
-  ${past.length?`<div><button class="link" data-act="m-past">${V.mPast?'지난 미팅 접기':'지난 미팅 '+past.length+'건 보기'}</button></div>${V.mPast?mGroups(past):''}`:''}`;
+  ${body}`;
 }
 /* 웹 푸시 구독: 서버는 등록된 기기 전체로 발송한다 */
 const FN=SB_URL+'/functions/v1/push';
@@ -544,11 +597,15 @@ document.addEventListener('click',async ev=>{
   const a=b.dataset.act,l=leadOf(),i=+b.dataset.i;
   if(a!=='del'&&a!=='m-del')V.armed=null;
   switch(a){
-    case 'm-new':V.mForm={company:'',date:addDays(1),time:'',place:'',memo:'',reminders:REM_DEF.slice()};render();scrollTo(0,0);break;
+    case 'm-new':{const t=kstNow().slice(0,10);V.mForm={company:'',date:V.calSel&&V.calSel>t?V.calSel:t,time:'',place:'',memo:'',reminders:REM_DEF.slice()};render();scrollTo(0,0);break;}
+    case 'cal-day':V.calSel=b.dataset.d;V.calYm=b.dataset.d.slice(0,7);V.mOpen=null;render();break;
+    case 'cal-move':{const [y,m]=V.calYm.split('-').map(Number),d=new Date(Date.UTC(y,m-1+(+b.dataset.n),1));V.calYm=d.toISOString().slice(0,7);render();break;}
+    case 'cal-today':{const t=kstNow().slice(0,10);V.calSel=t;V.calYm=t.slice(0,7);V.mOpen=null;render();break;}
+    case 'cal-mode':V.calMode=b.dataset.mode;V.mOpen=null;render();break;
     case 'm-edit':{const m=S.meetings.find(x=>x.id===b.dataset.id);if(m){V.mForm=JSON.parse(JSON.stringify(m));render();scrollTo(0,0);}break;}
     case 'm-cancel':V.mForm=null;render();break;
     case 'm-rem':{const c=+b.dataset.c,f=V.mForm;f.reminders=f.reminders.includes(c)?f.reminders.filter(x=>x!==c):REM.map(r=>r[0]).filter(x=>f.reminders.includes(x)||x===c);render();break;}
-    case 'm-save':{const f=V.mForm;if(!f.company.trim()||!f.date||!f.time){toast('업체명·날짜·시간을 입력해 주세요.');break;}f.company=f.company.trim();if(f.id){const n=S.meetings.findIndex(x=>x.id===f.id);if(n>=0)S.meetings[n]=f;}else{f.id='M'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);S.meetings.push(f);}V.mForm=null;V.mOpen=null;persist();render();toast('저장했습니다.');break;}
+    case 'm-save':{const f=V.mForm;if(!f.company.trim()||!f.date||!f.time){toast('업체명·날짜·시간을 입력해 주세요.');break;}f.company=f.company.trim();if(f.id){const n=S.meetings.findIndex(x=>x.id===f.id);if(n>=0)S.meetings[n]=f;}else{f.id='M'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);S.meetings.push(f);}V.mForm=null;V.mOpen=null;V.calSel=f.date;V.calYm=f.date.slice(0,7);persist();render();toast('저장했습니다.');break;}
     case 'm-toggle':V.mOpen=V.mOpen===b.dataset.id?null:b.dataset.id;render();break;
     case 'm-del':if(V.armed==='del'){S.meetings=S.meetings.filter(x=>x.id!==b.dataset.id);V.armed=null;V.mOpen=null;persist();}else V.armed='del';render();break;
     case 'm-past':V.mPast=!V.mPast;render();break;
