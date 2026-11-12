@@ -91,6 +91,8 @@ input:focus,select:focus,textarea:focus{border-color:var(--blue);outline:0}
 .mini button+button{margin-left:-1px}
 .mini button[aria-pressed="true"]{background:var(--blue-l);color:var(--blue-d);font-weight:700}
 .two{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.sum3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;align-items:stretch}
+.sum3 .lb{margin:4px 0 3px}.sum3 .prog{font-size:12px;color:var(--sub);margin:2px 0 0}
 .chk{display:grid;grid-template-columns:18px minmax(0,1fr);gap:6px 8px;align-items:start;padding-top:8px;border-top:1px solid var(--line2)}
 .chk input[type=checkbox]{width:16px;height:16px;margin:2px 0 0}
 .chk.done span{color:var(--faint);text-decoration:line-through}
@@ -195,7 +197,7 @@ input[type=checkbox]{height:16px}
 .ev{grid-template-columns:minmax(0,1fr)}.evk{flex-direction:row;gap:6px}
 .ov{grid-template-columns:minmax(0,1fr)}
 .ev select{height:34px}
-.ctl,.two{grid-template-columns:minmax(0,1fr)}
+.ctl,.two,.sum3{grid-template-columns:minmax(0,1fr)}
 .req .bar{flex-wrap:wrap}.req select{width:auto;height:36px}.req input{height:36px;font-size:16px;flex:1 1 140px}.chk input.ans{height:36px;font-size:16px}
 .mini button{height:32px;width:34px}
 .f{grid-template-columns:minmax(0,1fr) 52px}.f label{grid-column:1/-1;padding:0}
@@ -330,7 +332,7 @@ function composeInquiry(p){
 function buildLead(p){
   const lanes=[...new Set(p.countries.map(c=>c.lane))];
   return {id:'L'+Date.now().toString(36)+Math.random().toString(36).slice(2,6),created:today(),inquiryDate:p.inquiryDate,crmSynced:false,bizNo:p.bizNo,bizHints:p.bizHints,
-    services:p.services.slice(),summary:p.summary,item:p.details['취급품목']||'',reqService:p.details['요청서비스']||'',
+    services:p.services.slice(),summary:p.summary,item:p.details['취급품목']||'',reqService:p.details['요청서비스']||'',details:Object.assign({},p.details),revenue:p.revenue||'',
     crm:{nameKo:p.company,nameCn:p.company,contact:p.contact,phone:p.phone,email:p.email,owner:S.owner,channel:p.channel,scale:'',bizarea:'',revscale:OPT.rev.includes(p.revenue)?p.revenue:'',site:p.urls[0]?p.urls[0].url:'',svctype:'',countries:lanes.join(', '),courier:'',logscale:'',inquiry:composeInquiry(p),annual:'',annual2:'',stage:'리드',priority:'보통',monthly:'',win:'',nextDate:'',nextAction:'',contractNo:'',group:p.origin?(p.origin==='중국'?'중국 브랜드 한국 진출':''):(lanes.length?'한국 브랜드 해외진출':''),salestatus:'진행중',referrer:'',crmFlag:'',hold:'',detailReason:'',weekly:'',sfOpp:''},
     tasks:[...p.checks.map(t=>({text:t,done:false,answer:''})),...p.unknown.map(k=>({text:k+' 확인',done:false,answer:''}))],
     requests:p.requests.map(t=>({text:t,status:'검토 전',answer:'',cats:classify(t)})),
@@ -477,15 +479,37 @@ function previewHtml(){
   <div><button class="btn primary" data-act="register" ${p.company?'':'disabled'}>등록</button></div>`;
 }
 function reqHtml(l,i){const r=l.requests[i];return `<div class="req"><p>${esc(r.text)}</p><div class="bar"><select data-l="requests" data-i="${i}" data-k="status" aria-label="가능 여부">${['검토 전','가능','조건부','불가'].map(x=>`<option ${r.status===x?'selected':''}>${x}</option>`).join('')}</select><input data-l="requests" data-i="${i}" data-k="answer" value="${esc(r.answer)}" placeholder="답변 메모" aria-label="답변 메모"><span class="mini">${SERVICES.map(s=>`<button data-act="req-cat" data-i="${i}" data-s="${s}" aria-pressed="${r.cats.includes(s)}" aria-label="${s}" title="${s}">${s[0]}</button>`).join('')}</span></div></div>`;}
+/* 진행 상황 한 줄: 최근 견적 · 요청 답변 · 남은 확인 항목 */
+function progLine(l){
+  const q=l.quotes.slice().sort((a,b)=>b.round-a.round)[0],rq=l.requests.length,rd=l.requests.filter(r=>r.status!=='검토 전').length,tk=l.tasks.filter(t=>!t.done).length;
+  return [q?`견적 ${q.round}차 ${q.status}`:'견적 없음',rq?`요청 답변 ${rd}/${rq}`:'',tk?`확인 필요 ${tk}건`:''].filter(Boolean).join(' · ');
+}
+/* 물성(사업영역) 선택 + 양식에서 읽은 후보 */
+function bizHtml(l,id){
+  const h=(l.bizHints||[]).filter(x=>x!==l.crm.bizarea);
+  return `${selHtml(id,'bizarea',OPT.biz,l.crm.bizarea)}${h.length?`<div class="hints" style="margin-top:6px">${h.map(x=>`<button class="btn sm" data-act="biz" data-v="${esc(x)}">${esc(x)}</button>`).join('')}</div>`:''}`;
+}
+/* 펼침: 큰 줄기만 (서비스 · 진행 상황 · 물성). 세부는 상세 보기 */
 function dropHtml(l){
+  return `<div class="drop"><div class="sum3">
+  <div class="box"><h3>이용 서비스 현황</h3><div class="seg">${SERVICES.map(s=>`<button class="tog" data-act="svc" data-s="${s}" aria-pressed="${l.services.includes(s)}">${s}</button>`).join('')}</div></div>
+  <div class="box"><h3>업체 진행 상황</h3><div class="form2"><div><label class="lb" for="st-${l.id}">세일즈 단계</label>${selHtml('st-'+l.id,'stage',OPT.stage,l.crm.stage)}</div><div><label class="lb" for="ss-${l.id}">영업상태</label>${selHtml('ss-'+l.id,'salestatus',OPT.sales,l.crm.salestatus)}</div><div><label class="lb" for="nd-${l.id}">다음 팔로우업</label><input id="nd-${l.id}" type="date" data-f="nextDate" value="${esc(l.crm.nextDate)}"></div><div><label class="lb" for="na-${l.id}">다음 액션</label><input id="na-${l.id}" data-f="nextAction" value="${esc(l.crm.nextAction)}"></div></div><p class="prog">${esc(progLine(l))}</p></div>
+  <div class="box"><h3>물성</h3><label class="lb" for="bz-${l.id}">사업영역</label>${bizHtml(l,'bz-'+l.id)}<span class="lb">품목</span><p style="margin:0;overflow-wrap:anywhere">${esc(l.item)||'—'}</p></div>
+  </div>
+  <div class="acts"><button class="link" data-act="del">${V.armed==='del'?'한 번 더 누르면 삭제됩니다':'삭제'}</button><button class="btn primary" data-act="open" data-id="${l.id}">상세 보기</button></div></div>`;
+}
+/* 상세 개요: 문의 서비스 분류(서비스별 + 공통) · 확인 필요 */
+function inqHtml(l){
   const blocks=SERVICES.filter(s=>l.services.includes(s)||l.requests.some(r=>r.cats.includes(s))).map(s=>{const idx=l.requests.map((r,i)=>r.cats.includes(s)?i:-1).filter(i=>i>=0);return `<div class="box"><h3>${tagHtml(s)}<span>${idx.length}건</span></h3>${idx.map(i=>reqHtml(l,i)).join('')||'<p class="note">이 서비스로 분류된 요청이 없습니다.</p>'}</div>`;}).join('');
   const common=l.requests.map((r,i)=>r.cats.length?-1:i).filter(i=>i>=0);
-  return `<div class="drop"><div class="ctl"><div><span class="lb">서비스 분류 (복수 선택)</span><div class="seg">${SERVICES.map(s=>`<button class="tog" data-act="svc" data-s="${s}" aria-pressed="${l.services.includes(s)}">${s}</button>`).join('')}</div></div><div><label for="st-${l.id}">단계</label><select id="st-${l.id}" data-f="stage">${OPT.stage.map(x=>`<option ${l.crm.stage===x?'selected':''}>${x}</option>`).join('')}</select></div><div><label for="nd-${l.id}">다음 팔로우업</label><input id="nd-${l.id}" type="date" data-f="nextDate" value="${esc(l.crm.nextDate)}"></div><div><label for="na-${l.id}">다음 액션</label><input id="na-${l.id}" data-f="nextAction" value="${esc(l.crm.nextAction)}"></div></div>
-  ${blocks?`<div class="svc">${blocks}</div>`:''}${common.length?`<div class="box"><h3><span class="tag t-none">공통</span><span>${common.length}건</span></h3>${common.map(i=>reqHtml(l,i)).join('')}</div>`:''}
-  <div class="two"><div class="box"><h3>확인 필요</h3>${l.tasks.map((t,i)=>`<div class="chk ${t.done?'done':''}"><input type="checkbox" data-l="tasks" data-i="${i}" data-k="done" ${t.done?'checked':''} aria-label="확인 완료"><span>${esc(t.text)}</span><input class="ans" data-l="tasks" data-i="${i}" data-k="answer" value="${esc(t.answer)}" placeholder="회신 내용" aria-label="회신 내용"></div>`).join('')||'<p class="note">확인할 항목이 없습니다.</p>'}</div>
-  <div class="box"><h3>업체 정보</h3><dl><dt>담당자</dt><dd>${esc(l.crm.contact)||'—'}</dd><dt>연락처</dt><dd>${esc(l.crm.phone)||'—'}</dd><dt>이메일</dt><dd>${esc(l.crm.email)||'—'}</dd><dt>품목</dt><dd>${esc(l.item)||'—'}</dd><dt>요청</dt><dd>${esc(l.reqService)||'—'}</dd><dt>문의</dt><dd>${esc(l.summary)||'—'}</dd></dl></div></div>
-  <div class="acts"><button class="link" data-act="del">${V.armed==='del'?'한 번 더 누르면 삭제됩니다':'삭제'}</button><button class="btn" data-act="req-copy">답변 복사</button><button class="btn primary" data-act="open" data-id="${l.id}">상세 보기</button></div></div>`;
+  const commonH=common.length?`<div class="box"><h3><span class="tag t-none">공통</span><span>${common.length}건</span></h3>${common.map(i=>reqHtml(l,i)).join('')}</div>`:'';
+  return `<section class="panel"><div class="head"><h2>문의 서비스 분류</h2>${l.requests.length?'<button class="btn sm" data-act="req-copy">답변 복사</button>':''}</div>
+  ${l.summary?`<p class="note" style="margin:0">${esc(l.summary)}</p>`:''}
+  ${blocks?`<div class="svc">${blocks}</div>`:''}${commonH}${!blocks&&!commonH?'<div class="empty">분류할 문의 내용이 없습니다.</div>':''}</section>
+  <section class="panel"><h2>확인 필요</h2>${l.tasks.map((t,i)=>`<div class="chk ${t.done?'done':''}"><input type="checkbox" data-l="tasks" data-i="${i}" data-k="done" ${t.done?'checked':''} aria-label="확인 완료"><span>${esc(t.text)}</span><input class="ans" data-l="tasks" data-i="${i}" data-k="answer" value="${esc(t.answer)}" placeholder="회신 내용" aria-label="회신 내용"></div>`).join('')||'<p class="note">확인할 항목이 없습니다.</p>'}</section>`;
 }
+/* 배분 양식 문의내용에서 물량 관련 항목만 (고객 제시값) */
+const volDetails=l=>Object.entries(l.details||{}).filter(([k])=>/물량|출고량|건수|볼륨|CBM/i.test(k));
 function viewHome(){
   const tabs=['전체',...SERVICES,'미분류','종결'];
   const fi=V.intake||'전체',pool=S.leads.filter(l=>fi==='전체'||l.intake===fi);
@@ -531,11 +555,13 @@ function overviewHtml(l,miss){
   const next=leadMeetings(l).filter(m=>mKey(m)>=kstNow()).sort((a,b)=>mKey(a).localeCompare(mKey(b)))[0];
   return `<div class="ov"><section class="panel"><h2>진행 현황</h2>
   <div><span class="lb">인입 구분</span><div class="seg">${INTAKE.map(x=>`<button class="tog" data-act="intake" data-v="${x}" aria-pressed="${l.intake===x}">${x}</button>`).join('')}</div></div>
-  <div><span class="lb">서비스 분류 (복수 선택)</span><div class="seg">${SERVICES.map(s=>`<button class="tog" data-act="svc" data-s="${s}" aria-pressed="${l.services.includes(s)}">${s}</button>`).join('')}</div></div>
+  <div><span class="lb">이용 서비스 (복수 선택)</span><div class="seg">${SERVICES.map(s=>`<button class="tog" data-act="svc" data-s="${s}" aria-pressed="${l.services.includes(s)}">${s}</button>`).join('')}</div></div>
+  <div><label class="lb" for="o-biz">물성 (사업영역)</label>${bizHtml(l,'o-biz')}</div>
   <div class="form2"><div><label class="lb" for="o-stage">세일즈 단계</label>${selHtml('o-stage','stage',OPT.stage,l.crm.stage)}</div><div><label class="lb" for="o-sales">영업상태</label>${selHtml('o-sales','salestatus',OPT.sales,l.crm.salestatus)}</div><div><label class="lb" for="o-pri">우선순위</label>${selHtml('o-pri','priority',OPT.pri,l.crm.priority)}</div><div><label class="lb" for="o-nd">다음 팔로우업</label><input id="o-nd" type="date" data-f="nextDate" value="${esc(l.crm.nextDate)}"></div><div class="wide"><label class="lb" for="o-na">다음 액션</label><input id="o-na" data-f="nextAction" value="${esc(l.crm.nextAction)}"></div></div>
   <p class="note">단계와 영업상태를 바꾸면 활동 기록에 자동으로 남습니다.</p></section>
   <div style="display:flex;flex-direction:column;gap:14px;min-width:0"><section class="panel"><h2>요약</h2><dl><dt>견적</dt><dd>${q?`${esc(q.round)}차 · ${esc(q.date)} · ${esc(q.status)}${l.quotes.length>1?` (총 ${l.quotes.length}건)`:''}`:'없음'}</dd><dt>다음 미팅</dt><dd>${next?esc(dayLabel(next.date)+' '+next.time):'없음'}</dd><dt>판매 구성</dt><dd>${l.mix.length?esc(l.mix.map(m=>[m.country,m.channel||m.type].filter(Boolean).join(' ')).join(', ')):'미입력'}</dd>${miss.length?`<dt>CRM</dt><dd>필수 ${miss.length}개 미입력</dd>`:''}</dl></section>
-  <section class="panel"><h2>업체 정보</h2><dl><dt>담당자</dt><dd>${esc(l.crm.contact)||'—'}</dd><dt>연락처</dt><dd>${esc(l.crm.phone)||'—'}</dd><dt>이메일</dt><dd>${esc(l.crm.email)||'—'}</dd><dt>홈페이지</dt><dd>${esc(l.crm.site)||'—'}</dd><dt>품목</dt><dd>${esc(l.item)||'—'}</dd><dt>요청</dt><dd>${esc(l.reqService)||'—'}</dd><dt>문의</dt><dd>${esc(l.summary)||'—'}</dd></dl><p class="note">연락처 수정은 CRM 시트 탭에서 합니다.</p></section></div></div>`;
+  <section class="panel"><h2>업체 정보</h2><dl><dt>담당자</dt><dd>${esc(l.crm.contact)||'—'}</dd><dt>연락처</dt><dd>${esc(l.crm.phone)||'—'}</dd><dt>이메일</dt><dd>${esc(l.crm.email)||'—'}</dd><dt>홈페이지</dt><dd>${esc(l.crm.site)||'—'}</dd><dt>품목</dt><dd>${esc(l.item)||'—'}</dd><dt>매출액</dt><dd>${esc(l.revenue||l.crm.revscale)||'—'}</dd><dt>기존 물류사</dt><dd>${esc(l.crm.courier)||'—'}</dd>${volDetails(l).map(([k,v])=>`<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join('')||'<dt>예상 물량</dt><dd>—</dd>'}<dt>물류비 규모</dt><dd>${esc(l.crm.logscale)||'—'}</dd><dt>예상 월 물류매출</dt><dd>${esc(l.crm.monthly)||'—'}</dd></dl><p class="note">예상 물량·물류비 규모는 고객 제시값입니다. 수정은 CRM 시트 탭에서 합니다.</p></section></div></div>
+  ${inqHtml(l)}`;
 }
 function mixHtml(l){
   const rows=l.mix.map((m,i)=>`<div class="mx"><input data-mx="country" data-i="${i}" list="mx-c" value="${esc(m.country)}" placeholder="국가" aria-label="국가"><select data-mx="type" data-i="${i}" aria-label="판매 형태">${MIX_TYPE.map(x=>`<option ${m.type===x?'selected':''}>${x}</option>`).join('')}</select><input data-mx="channel" data-i="${i}" list="mx-ch-${i}" value="${esc(m.channel)}" placeholder="채널·방식" aria-label="채널·방식"><datalist id="mx-ch-${i}">${(MIX_CH[m.type]||[]).map(x=>`<option value="${esc(x)}">`).join('')}</datalist><input data-mx="note" data-i="${i}" value="${esc(m.note)}" placeholder="비고" aria-label="비고"><button class="x" data-act="mx-del" data-i="${i}" aria-label="이 행 삭제">✕</button></div>`).join('');
@@ -792,6 +818,7 @@ document.addEventListener('click',async ev=>{
     case 'req-cat':{const r=l.requests[i],s=b.dataset.s;r.cats=r.cats.includes(s)?r.cats.filter(x=>x!==s):SERVICES.filter(x=>r.cats.includes(x)||x===s);persist();render();break;}
     case 'req-copy':copyText(l.requests.map((r,n)=>(n+1)+'. '+r.text+'\n→ '+r.status+(r.answer?': '+r.answer:'')).join('\n'));break;
     case 'del':if(V.armed==='del'){const paths=(l.quotes||[]).flatMap(q=>q.files.map(x=>x.path));if(paths.length)removeFiles(paths).catch(()=>{});S.meetings.forEach(m=>{if(m.lead_id===l.id)m.lead_id=null;});S.leads=S.leads.filter(x=>x.id!==l.id);V.armed=null;V.open=null;persist();}else V.armed='del';render();break;
+    case 'biz':l.crm.bizarea=b.dataset.v;dirty(l);persist();render();break;
     case 'hint':l.crm[b.dataset.k]=b.dataset.v;$('f-'+b.dataset.k).value=b.dataset.v;dirty(l);save();break;
     case 'copy-f':if(await copyText(l.crm[b.dataset.k])){(copied[l.id]=copied[l.id]||{})[b.dataset.k]=1;$('row-'+b.dataset.k).classList.add('done');b.textContent='완료';}break;
     case 'reset-copy':delete copied[l.id];render();break;
