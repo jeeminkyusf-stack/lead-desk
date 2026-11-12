@@ -93,6 +93,12 @@ input:focus,select:focus,textarea:focus{border-color:var(--blue);outline:0}
 .mini button+button{margin-left:-1px}
 .mini button[aria-pressed="true"]{background:var(--blue-l);color:var(--blue-d);font-weight:700}
 .two{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.dh{display:flex;align-items:center;justify-content:space-between;gap:8px}.dh h3{margin:0;font-size:14px}
+.ms{position:relative}.ms summary{list-style:none;cursor:pointer;min-height:36px;display:flex;align-items:center;padding:6px 28px 6px 10px;border:1px solid var(--line);border-radius:6px;background:#fff;font-size:14px;position:relative}
+.ms summary::-webkit-details-marker{display:none}.ms summary::after{content:'▾';position:absolute;right:10px;color:var(--sub)}
+.ms-v{overflow-wrap:anywhere}.ms-pop{margin-top:6px;border:1px solid var(--line);border-radius:6px;background:#fff;padding:10px;display:flex;flex-direction:column;gap:10px;max-height:360px;overflow:auto}
+.ms-g b{display:block;font-size:12px;color:var(--sub);margin-bottom:4px}.ms-g>div{display:flex;flex-wrap:wrap;gap:4px 12px}
+.ms-i{display:inline-flex;align-items:center;gap:5px;font-size:13px;cursor:pointer}.ms-i input{width:15px;height:15px;margin:0}.ms-add{height:32px;font-size:13px}
 .sum3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;align-items:stretch}
 .sum3 .lb{margin:4px 0 3px}.sum3 .prog{font-size:12px;color:var(--sub);margin:2px 0 0}
 .chk{display:grid;grid-template-columns:18px minmax(0,1fr);gap:6px 8px;align-items:start;padding-top:8px;border-top:1px solid var(--line2)}
@@ -247,6 +253,15 @@ const BIZ_HINT=[['뷰티',/화장품|뷰티|코스메/],['식품•건강',/건�
 const UNKNOWN=/^(미확인|미정|확인\s*필요|확인\s*중|n\/?a|-|—)?$/i;
 const INTAKE=['이관 고객','배분 리드','자체 발굴'];
 const MIX_TYPE=['이커머스','B2B 벌크','오프라인 유통','기타'];
+/* 판매 마켓 (복수 선택). 그룹·항목은 여기만 고치면 화면에 반영됨 */
+const MARKETS=[
+  ['국내',['자사몰','쿠팡','네이버 스마트스토어','올리브영','면세점','11번가','G마켓·옥션','SSG닷컴','롯데온','컬리','카카오 선물하기','무신사','29CM','W컨셉','지그재그','에이블리','오늘의집','TV홈쇼핑']],
+  ['글로벌 이커머스',['자사몰 (Shopify 등)','Amazon FBA','Amazon FBM','eBay','Walmart','TikTok Shop','Temu','AliExpress','Etsy','YesStyle','Stylevana']],
+  ['일본',['Qoo10 Japan','Rakuten','Amazon Japan','@cosme','ZOZOTOWN','Yahoo! Shopping']],
+  ['동남아·대만',['Shopee','Lazada','Tokopedia','Qoo10 Singapore','쿠팡 대만','momo','PChome']],
+  ['중국',['샤오홍슈','더우인','티몰 글로벌','징둥 글로벌','타오바오','핀둬둬']],
+  ['오프라인·B2B',['해외 수입상·디스트리뷰터','해외 리테일 직납','해외 면세점','국내 오프라인 리테일']]
+];
 const MIX_CH={'이커머스':['자사몰 (Shopify)','자사몰 (기타)','Amazon FBA','Amazon FBM','Shopee','Lazada','Qoo10','Rakuten','TikTok Shop','Temu','기타 마켓'],'B2B 벌크':['항공','해상','항공·해상'],'오프라인 유통':['수입상·도매','리테일 직납'],'기타':[]};
 const MIX_COUNTRY=[...Object.keys(COUNTRY).filter(k=>k!=='한국'),'태국','인도네시아','인도','영국','독일','프랑스','UAE','사우디','멕시코','브라질'];
 const Q_SVC=['EXD','SE','EE','IB','EP','풀필먼트','포워딩','기타'];
@@ -255,7 +270,7 @@ const MAX_FILE=20*1024*1024;
 /* 예전 데이터에 1단계 항목을 채운다. 기존 업체는 모두 배분 양식으로 등록된 업체다 */
 function norm(l){
   if(!l.intake)l.intake='배분 리드';
-  l.mix=l.mix||[];l.quotes=l.quotes||[];l.history=l.history||[];
+  l.mix=l.mix||[];l.markets=l.markets||[];l.quotes=l.quotes||[];l.history=l.history||[];
   if(!l.track)l.track={stage:l.crm.stage||'',salestatus:l.crm.salestatus||''};
   return l;
 }
@@ -338,7 +353,7 @@ function buildLead(p){
     crm:{nameKo:p.company,nameCn:p.company,contact:p.contact,phone:p.phone,email:p.email,owner:S.owner,channel:p.channel,scale:'',bizarea:'',revscale:OPT.rev.includes(p.revenue)?p.revenue:'',site:p.urls[0]?p.urls[0].url:'',svctype:'',countries:lanes.join(', '),courier:'',logscale:'',inquiry:composeInquiry(p),annual:'',annual2:'',stage:'리드',priority:'보통',monthly:'',win:'',nextDate:'',nextAction:'',contractNo:'',group:p.origin?(p.origin==='중국'?'중국 브랜드 한국 진출':''):(lanes.length?'한국 브랜드 해외진출':''),salestatus:'진행중',referrer:'',crmFlag:'',hold:'',detailReason:'',weekly:'',sfOpp:''},
     tasks:[...p.checks.map(t=>({text:t,done:false,answer:''})),...p.unknown.map(k=>({text:k+' 확인',done:false,answer:''}))],
     requests:p.requests.map(t=>({text:t,status:'검토 전',answer:'',cats:classify(t)})),
-    followups:[],intake:'배분 리드',mix:[],quotes:[],history:[],track:{stage:'리드',salestatus:'진행중'}};
+    followups:[],intake:'배분 리드',mix:[],markets:[],quotes:[],history:[],track:{stage:'리드',salestatus:'진행중'}};
 }
 /* 배분 양식 없이 직접 등록 (이관 고객·자체 발굴) */
 function directLead(d){
@@ -481,34 +496,40 @@ function previewHtml(){
   <div><button class="btn primary" data-act="register" ${p.company?'':'disabled'}>등록</button></div>`;
 }
 function reqHtml(l,i){const r=l.requests[i];return `<div class="req"><p>${esc(r.text)}</p><div class="bar"><select data-l="requests" data-i="${i}" data-k="status" aria-label="가능 여부">${['검토 전','가능','조건부','불가'].map(x=>`<option ${r.status===x?'selected':''}>${x}</option>`).join('')}</select><input data-l="requests" data-i="${i}" data-k="answer" value="${esc(r.answer)}" placeholder="답변 메모" aria-label="답변 메모"><span class="mini">${SERVICES.map(s=>`<button data-act="req-cat" data-i="${i}" data-s="${s}" aria-pressed="${r.cats.includes(s)}" aria-label="${s}" title="${s}">${s[0]}</button>`).join('')}</span></div></div>`;}
-/* 진행 상황 한 줄: 최근 견적 · 요청 답변 · 남은 확인 항목 */
-function progLine(l){
-  const q=l.quotes.slice().sort((a,b)=>b.round-a.round)[0],rq=l.requests.length,rd=l.requests.filter(r=>r.status!=='검토 전').length,tk=l.tasks.filter(t=>!t.done).length;
-  return [q?`견적 ${q.round}차 ${q.status}`:'견적 없음',rq?`요청 답변 ${rd}/${rq}`:'',tk?`확인 필요 ${tk}건`:''].filter(Boolean).join(' · ');
-}
 /* 물성(사업영역) 선택 + 양식에서 읽은 후보 */
 function bizHtml(l,id){
   const h=(l.bizHints||[]).filter(x=>x!==l.crm.bizarea);
   return `${selHtml(id,'bizarea',OPT.biz,l.crm.bizarea)}${h.length?`<div class="hints" style="margin-top:6px">${h.map(x=>`<button class="btn sm" data-act="biz" data-v="${esc(x)}">${esc(x)}</button>`).join('')}</div>`:''}`;
 }
-/* 펼침: 큰 줄기만 (서비스 · 진행 상황 · 물성). 세부는 상세 보기 */
+/* 판매 마켓 복수 선택 드롭다운 */
+function marketHtml(l){
+  const all=MARKETS.flatMap(g=>g[1]),extra=l.markets.filter(m=>!all.includes(m));
+  const box=(m)=>`<label class="ms-i"><input type="checkbox" data-mk="${esc(m)}" ${l.markets.includes(m)?'checked':''}>${esc(m)}</label>`;
+  return `<details class="ms" ${V.msOpen?'open':''}><summary><span class="ms-v">${esc(l.markets.join(', '))||'선택'}</span></summary><div class="ms-pop">${MARKETS.map(([g,a])=>`<div class="ms-g"><b>${g}</b><div>${a.map(box).join('')}</div></div>`).join('')}${extra.length?`<div class="ms-g"><b>직접 추가</b><div>${extra.map(box).join('')}</div></div>`:''}<input class="ms-add" data-mkadd="1" placeholder="목록에 없는 마켓 입력 후 Enter" aria-label="마켓 직접 추가"></div></details>`;
+}
+/* 업체 정보 (요청·문의는 문의 서비스 분류에서 봄) */
+function infoDl(l){
+  return `<dl><dt>담당자</dt><dd>${esc(l.crm.contact)||'—'}</dd><dt>연락처</dt><dd>${esc(l.crm.phone)||'—'}</dd><dt>이메일</dt><dd>${esc(l.crm.email)||'—'}</dd><dt>홈페이지</dt><dd>${esc(l.crm.site)||'—'}</dd><dt>품목</dt><dd>${esc(l.item)||'—'}</dd><dt>판매 마켓</dt><dd>${esc(l.markets.join(', '))||'—'}</dd><dt>매출액</dt><dd>${esc(l.revenue||l.crm.revscale)||'—'}</dd><dt>기존 물류사</dt><dd>${esc(l.crm.courier)||'—'}</dd>${volDetails(l).map(([k,v])=>`<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join('')||'<dt>예상 물량</dt><dd>—</dd>'}<dt>물류비 규모</dt><dd>${esc(l.crm.logscale)||'—'}</dd><dt>예상 월 물류매출</dt><dd>${esc(l.crm.monthly)||'—'}</dd></dl>`;
+}
+function inqBody(l){
+  const blocks=SERVICES.filter(s=>l.services.includes(s)||l.requests.some(r=>r.cats.includes(s))).map(s=>{const idx=l.requests.map((r,i)=>r.cats.includes(s)?i:-1).filter(i=>i>=0);return `<div class="box"><h3>${tagHtml(s)}<span>${idx.length}건</span></h3>${idx.map(i=>reqHtml(l,i)).join('')||'<p class="note">이 서비스로 분류된 요청이 없습니다.</p>'}</div>`;}).join('');
+  const common=l.requests.map((r,i)=>r.cats.length?-1:i).filter(i=>i>=0);
+  const commonH=common.length?`<div class="box"><h3><span class="tag t-none">공통</span><span>${common.length}건</span></h3>${common.map(i=>reqHtml(l,i)).join('')}</div>`:'';
+  return `${blocks?`<div class="svc">${blocks}</div>`:''}${commonH}${!blocks&&!commonH?'<div class="empty">분류할 문의 내용이 없습니다.</div>':''}`;
+}
+const tasksBody=l=>l.tasks.map((t,i)=>`<div class="chk ${t.done?'done':''}"><input type="checkbox" data-l="tasks" data-i="${i}" data-k="done" ${t.done?'checked':''} aria-label="확인 완료"><span>${esc(t.text)}</span><input class="ans" data-l="tasks" data-i="${i}" data-k="answer" value="${esc(t.answer)}" placeholder="회신 내용" aria-label="회신 내용"></div>`).join('')||'<p class="note">확인할 항목이 없습니다.</p>';
+/* 펼침: 요청사항 위주 (문의 서비스 분류 · 확인 필요 · 업체 정보) */
 function dropHtml(l){
-  return `<div class="drop"><div class="sum3">
-  <div class="box"><h3>이용 서비스 현황</h3><div class="seg">${SERVICES.map(s=>`<button class="tog" data-act="svc" data-s="${s}" aria-pressed="${l.services.includes(s)}">${s}</button>`).join('')}</div></div>
-  <div class="box"><h3>업체 진행 상황</h3><div class="form2"><div><label class="lb" for="st-${l.id}">세일즈 단계</label>${selHtml('st-'+l.id,'stage',OPT.stage,l.crm.stage)}</div><div><label class="lb" for="ss-${l.id}">영업상태</label>${selHtml('ss-'+l.id,'salestatus',OPT.sales,l.crm.salestatus)}</div><div><label class="lb" for="nd-${l.id}">다음 팔로우업</label><input id="nd-${l.id}" type="date" data-f="nextDate" value="${esc(l.crm.nextDate)}"></div><div><label class="lb" for="na-${l.id}">다음 액션</label><input id="na-${l.id}" data-f="nextAction" value="${esc(l.crm.nextAction)}"></div></div><p class="prog">${esc(progLine(l))}</p></div>
-  <div class="box"><h3>물성</h3><label class="lb" for="bz-${l.id}">사업영역</label>${bizHtml(l,'bz-'+l.id)}<span class="lb">품목</span><p style="margin:0;overflow-wrap:anywhere">${esc(l.item)||'—'}</p></div>
-  </div>
+  return `<div class="drop"><div class="dh"><h3>문의 서비스 분류</h3>${l.requests.length?'<button class="btn sm" data-act="req-copy">답변 복사</button>':''}</div>
+  ${inqBody(l)}
+  <div class="two"><div class="box"><h3>확인 필요</h3>${tasksBody(l)}</div><div class="box"><h3>업체 정보</h3>${infoDl(l)}</div></div>
   <div class="acts"><button class="link" data-act="del">${V.armed==='del'?'한 번 더 누르면 삭제됩니다':'삭제'}</button><button class="btn primary" data-act="open" data-id="${l.id}">상세 보기</button></div></div>`;
 }
 /* 상세 개요: 문의 서비스 분류(서비스별 + 공통) · 확인 필요 */
 function inqHtml(l){
-  const blocks=SERVICES.filter(s=>l.services.includes(s)||l.requests.some(r=>r.cats.includes(s))).map(s=>{const idx=l.requests.map((r,i)=>r.cats.includes(s)?i:-1).filter(i=>i>=0);return `<div class="box"><h3>${tagHtml(s)}<span>${idx.length}건</span></h3>${idx.map(i=>reqHtml(l,i)).join('')||'<p class="note">이 서비스로 분류된 요청이 없습니다.</p>'}</div>`;}).join('');
-  const common=l.requests.map((r,i)=>r.cats.length?-1:i).filter(i=>i>=0);
-  const commonH=common.length?`<div class="box"><h3><span class="tag t-none">공통</span><span>${common.length}건</span></h3>${common.map(i=>reqHtml(l,i)).join('')}</div>`:'';
   return `<section class="panel"><div class="head"><h2>문의 서비스 분류</h2>${l.requests.length?'<button class="btn sm" data-act="req-copy">답변 복사</button>':''}</div>
-  ${l.summary?`<p class="note" style="margin:0">${esc(l.summary)}</p>`:''}
-  ${blocks?`<div class="svc">${blocks}</div>`:''}${commonH}${!blocks&&!commonH?'<div class="empty">분류할 문의 내용이 없습니다.</div>':''}</section>
-  <section class="panel"><h2>확인 필요</h2>${l.tasks.map((t,i)=>`<div class="chk ${t.done?'done':''}"><input type="checkbox" data-l="tasks" data-i="${i}" data-k="done" ${t.done?'checked':''} aria-label="확인 완료"><span>${esc(t.text)}</span><input class="ans" data-l="tasks" data-i="${i}" data-k="answer" value="${esc(t.answer)}" placeholder="회신 내용" aria-label="회신 내용"></div>`).join('')||'<p class="note">확인할 항목이 없습니다.</p>'}</section>`;
+  ${l.summary?`<p class="note" style="margin:0">${esc(l.summary)}</p>`:''}${inqBody(l)}</section>
+  <section class="panel"><h2>확인 필요</h2>${tasksBody(l)}</section>`;
 }
 /* 배분 양식 문의내용에서 물량 관련 항목만 (고객 제시값) */
 const volDetails=l=>Object.entries(l.details||{}).filter(([k])=>/물량|출고량|건수|볼륨|CBM/i.test(k));
@@ -559,10 +580,11 @@ function overviewHtml(l,miss){
   <div><span class="lb">인입 구분</span><div class="seg">${INTAKE.map(x=>`<button class="tog" data-act="intake" data-v="${x}" aria-pressed="${l.intake===x}">${x}</button>`).join('')}</div></div>
   <div><span class="lb">이용 서비스 (복수 선택)</span><div class="seg">${SERVICES.map(s=>`<button class="tog" data-act="svc" data-s="${s}" aria-pressed="${l.services.includes(s)}">${s}</button>`).join('')}</div></div>
   <div><label class="lb" for="o-biz">물성 (사업영역)</label>${bizHtml(l,'o-biz')}</div>
+  <div><span class="lb">판매 마켓 (복수 선택)</span>${marketHtml(l)}</div>
   <div class="form2"><div><label class="lb" for="o-stage">세일즈 단계</label>${selHtml('o-stage','stage',OPT.stage,l.crm.stage)}</div><div><label class="lb" for="o-sales">영업상태</label>${selHtml('o-sales','salestatus',OPT.sales,l.crm.salestatus)}</div><div><label class="lb" for="o-pri">우선순위</label>${selHtml('o-pri','priority',OPT.pri,l.crm.priority)}</div><div><label class="lb" for="o-nd">다음 팔로우업</label><input id="o-nd" type="date" data-f="nextDate" value="${esc(l.crm.nextDate)}"></div><div class="wide"><label class="lb" for="o-na">다음 액션</label><input id="o-na" data-f="nextAction" value="${esc(l.crm.nextAction)}"></div></div>
   <p class="note">단계와 영업상태를 바꾸면 활동 기록에 자동으로 남습니다.</p></section>
   <div style="display:flex;flex-direction:column;gap:14px;min-width:0"><section class="panel"><h2>요약</h2><dl><dt>견적</dt><dd>${q?`${esc(q.round)}차 · ${esc(q.date)} · ${esc(q.status)}${l.quotes.length>1?` (총 ${l.quotes.length}건)`:''}`:'없음'}</dd><dt>다음 미팅</dt><dd>${next?esc(dayLabel(next.date)+' '+next.time):'없음'}</dd><dt>판매 구성</dt><dd>${l.mix.length?esc(l.mix.map(m=>[m.country,m.channel||m.type].filter(Boolean).join(' ')).join(', ')):'미입력'}</dd>${miss.length?`<dt>CRM</dt><dd>필수 ${miss.length}개 미입력</dd>`:''}</dl></section>
-  <section class="panel"><h2>업체 정보</h2><dl><dt>담당자</dt><dd>${esc(l.crm.contact)||'—'}</dd><dt>연락처</dt><dd>${esc(l.crm.phone)||'—'}</dd><dt>이메일</dt><dd>${esc(l.crm.email)||'—'}</dd><dt>홈페이지</dt><dd>${esc(l.crm.site)||'—'}</dd><dt>품목</dt><dd>${esc(l.item)||'—'}</dd><dt>매출액</dt><dd>${esc(l.revenue||l.crm.revscale)||'—'}</dd><dt>기존 물류사</dt><dd>${esc(l.crm.courier)||'—'}</dd>${volDetails(l).map(([k,v])=>`<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join('')||'<dt>예상 물량</dt><dd>—</dd>'}<dt>물류비 규모</dt><dd>${esc(l.crm.logscale)||'—'}</dd><dt>예상 월 물류매출</dt><dd>${esc(l.crm.monthly)||'—'}</dd></dl><p class="note">예상 물량·물류비 규모는 고객 제시값입니다. 수정은 CRM 시트 탭에서 합니다.</p></section></div></div>
+  <section class="panel"><h2>업체 정보</h2>${infoDl(l)}<p class="note">예상 물량·물류비 규모는 고객 제시값입니다. 수정은 CRM 시트 탭에서 합니다.</p></section></div></div>
   ${inqHtml(l)}`;
 }
 function mixHtml(l){
@@ -836,6 +858,11 @@ document.addEventListener('click',async ev=>{
     case 'restore-no':V.restore=null;render();break;
   }
 });
+document.addEventListener('keydown',e=>{
+  const t=e.target;if(!t.dataset||!t.dataset.mkadd||e.key!=='Enter'||e.isComposing)return;
+  e.preventDefault();const l=leadOf(),v=t.value.trim();if(!l||!v)return;
+  if(!l.markets.includes(v))l.markets.push(v);V.msOpen=true;persist();render();V.msOpen=false;const n=document.querySelector('.ms-add');if(n)n.focus();
+});
 const FU_ACT={이메일:'메일 발송',전화:'유선 통화',미팅:'미팅 진행',기타:''};
 document.addEventListener('input',e=>{
   const t=e.target,d=t.dataset;
@@ -853,6 +880,7 @@ document.addEventListener('input',e=>{
 document.addEventListener('change',e=>{
   const t=e.target;
   if(t.id==='restore-file'){const f=t.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{try{const o=JSON.parse(r.result);if(!o||!Array.isArray(o.leads))throw 0;V.restore=o;render();}catch(x){toast('Sales Hub 백업 파일이 아닙니다.');}};r.readAsText(f);return;}
+  if(t.dataset.mk!=null){const l=leadOf();if(!l)return;const m=t.dataset.mk;l.markets=t.checked?[...new Set([...l.markets,m])]:l.markets.filter(x=>x!==m);const v=t.closest('.ms').querySelector('.ms-v');if(v)v.textContent=l.markets.join(', ')||'선택';persist();return;}
   if(t.type==='checkbox'&&t.dataset.l){const l=leadOf();l[t.dataset.l][+t.dataset.i][t.dataset.k]=t.checked;persist();render();return;}
   if(t.id==='q-files'){V.qFiles=[...t.files];render();return;}
   if(t.dataset.qs){const l=leadOf(),q=l&&l.quotes.find(x=>x.id===t.dataset.qs);if(q&&q.status!==t.value){l.history.push({at:new Date().toISOString(),text:q.round+'차 견적 상태: '+q.status+' → '+t.value});q.status=t.value;persist();render();}return;}
