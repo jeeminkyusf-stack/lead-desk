@@ -56,13 +56,15 @@ h2{font-size:14px;font-weight:700;margin:0}
 .t-none{background:var(--line2);color:var(--sub)}
 .tags{display:flex;flex-wrap:wrap;gap:4px}
 .table{background:var(--panel);border:1px solid var(--line);border-radius:6px;overflow:hidden}
-.tr{display:grid;grid-template-columns:minmax(0,1.3fr) 200px 110px minmax(0,1.5fr) 84px 72px 20px;gap:12px;align-items:center;padding:11px 16px;width:100%;border:0;background:none;text-align:left}
+.tr{display:grid;grid-template-columns:minmax(0,1.4fr) 220px minmax(0,1fr) minmax(0,1fr) 20px;gap:12px;align-items:center;padding:11px 16px;width:100%;border:0;background:none;text-align:left}
 .th{font-size:12px;font-weight:600;color:var(--sub);background:var(--blue-l2);border-bottom:1px solid var(--line);padding-block:8px}
 .row{border-bottom:1px solid var(--line2)}.row:last-child{border-bottom:0}
 button.tr{cursor:pointer}button.tr:hover{background:var(--blue-l2)}
 .row.open>button.tr{background:var(--blue-l)}
 .co{font-weight:600;overflow-wrap:anywhere}
 .co small{display:block;font-weight:400;font-size:12px;color:var(--faint)}
+.c-stage{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+.c-biz{overflow-wrap:anywhere}.c-biz small{display:block;font-size:12px;color:var(--faint)}
 .clip{color:var(--sub);font-size:13px;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
 .lanes{font-size:12px;color:var(--sub)}
 .due{font-weight:600;font-size:13px}.due.over{color:var(--blue-d);font-weight:800}.due.none{color:var(--faint);font-weight:400}
@@ -120,7 +122,7 @@ dt{color:var(--sub);font-size:13px}dd{margin:0;overflow-wrap:anywhere}
 .login .err{color:var(--blue-d);font-weight:600;font-size:13px;margin:0}
 .status{padding:14px 20px 0;font-size:12px;color:var(--faint);margin:0}
 #toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--blue-d);color:#fff;padding:7px 14px;border-radius:4px;z-index:20}
-@media (max-width:1100px){.tr{grid-template-columns:minmax(0,1fr) 180px 70px 20px}.tr>.c-lane,.tr>.c-req,.tr>.c-stage{display:none}.detail,.entry{grid-template-columns:minmax(0,1fr)}}
+@media (max-width:1100px){.tr{grid-template-columns:minmax(0,1fr) 170px 130px 120px 20px}.detail,.entry{grid-template-columns:minmax(0,1fr)}}
 .btn[aria-pressed="true"]{background:var(--blue);border-color:var(--blue);color:#fff}
 .mday{font-size:13px;font-weight:700;color:var(--blue-d);margin:8px 0 -6px}
 .mrow{display:grid;grid-template-columns:56px minmax(0,1fr) 20px;gap:12px;align-items:center;padding:13px 16px;width:100%;border:0;background:none;text-align:left;cursor:pointer}
@@ -192,7 +194,7 @@ textarea{height:auto}
 input[type=checkbox]{height:16px}
 .btn{height:40px;padding:0 14px}.btn.sm{height:34px;padding:0 10px}.tog{height:40px}
 .tabs{flex-wrap:nowrap;overflow-x:auto}.tab{white-space:nowrap}
-.tr{grid-template-columns:minmax(0,1fr) 60px 20px}.tr>.c-tag{grid-row:2;grid-column:1/-1}.th{display:none}
+.tr{grid-template-columns:minmax(0,1fr) auto 20px}.tr>.c-tag{grid-row:2;grid-column:1}.tr>.c-biz{grid-row:2;grid-column:2/-1;text-align:right}.th{display:none}
 .mx{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}.mx.h{display:none}.mx .x{width:100%;height:36px}.mx{padding-bottom:10px;border-bottom:1px solid var(--line2)}
 .ev{grid-template-columns:minmax(0,1fr)}.evk{flex-direction:row;gap:6px}
 .ov{grid-template-columns:minmax(0,1fr)}
@@ -522,8 +524,8 @@ function viewHome(){
   ${syncErr?'<div class="notice">서버에 저장하지 못했습니다. 입력 내용은 이 브라우저에 보관 중이며 자동으로 다시 시도합니다.</div>':''}
   <div class="filters"><span class="lb" style="margin:0">인입 구분</span><div class="seg">${['전체',...INTAKE].map(x=>`<button class="tog" data-act="intake-f" data-v="${x}" aria-pressed="${fi===x}">${x}<b style="font-weight:400;margin-left:4px">${x==='전체'?S.leads.length:S.leads.filter(l=>l.intake===x).length}</b></button>`).join('')}</div></div>
   <div class="tabs" role="tablist">${tabs.map(t=>`<button class="tab" role="tab" data-act="tab" data-t="${t}" aria-selected="${V.tab===t}">${t}<b>${pool.filter(l=>inTab(l,t)).length}</b></button>`).join('')}</div>
-  <div class="table"><div class="tr th"><span>업체</span><span class="c-tag">서비스</span><span class="c-lane">항로</span><span class="c-req">요청 내용</span><span class="c-stage">단계</span><span>다음 일정</span><span></span></div>
-  ${list.map(l=>{const d=dday(l.crm.nextDate),o=V.open===l.id;return `<div class="row ${o?'open':''}"><button class="tr" data-act="toggle" data-id="${l.id}" aria-expanded="${o}"><span class="co">${esc(l.crm.nameKo||'회사명 없음')}<small>${ibHtml(l)}${esc(shortDate(l.inquiryDate)||shortDate(l.created))}${l.quotes.length?' · 견적 '+l.quotes.length+'건':''}${unsynced(l)?' · 팀 CRM 미반영':''}</small></span><span class="tags c-tag">${l.services.map(tagHtml).join('')||'<span class="tag t-none">미분류</span>'}</span><span class="lanes c-lane">${esc(l.crm.countries)||'—'}</span><span class="clip c-req">${esc([l.item,l.reqService].filter(Boolean).join(' · '))||'—'}</span><span class="c-stage">${esc(l.crm.stage)}</span><span class="due ${d.c}">${d.t}</span><span class="chev" aria-hidden="true">▾</span></button>${o?dropHtml(l):''}</div>`}).join('')||'<div class="empty">표시할 업체가 없습니다.</div>'}</div>`;
+  <div class="table"><div class="tr th"><span>업체</span><span class="c-tag">이용 서비스</span><span class="c-stage">진행 상황</span><span class="c-biz">물성</span><span></span></div>
+  ${list.map(l=>{const d=dday(l.crm.nextDate),o=V.open===l.id;return `<div class="row ${o?'open':''}"><button class="tr" data-act="toggle" data-id="${l.id}" aria-expanded="${o}"><span class="co">${esc(l.crm.nameKo||'회사명 없음')}<small>${ibHtml(l)}${esc(shortDate(l.inquiryDate)||shortDate(l.created))}${l.quotes.length?' · 견적 '+l.quotes.length+'건':''}${unsynced(l)?' · 팀 CRM 미반영':''}</small></span><span class="tags c-tag">${l.services.map(tagHtml).join('')||'<span class="tag t-none">미분류</span>'}</span><span class="c-stage"><span>${esc(l.crm.stage)}${l.crm.salestatus&&l.crm.salestatus!=='진행중'?' · '+esc(l.crm.salestatus):''}</span><span class="due ${d.c}">${d.t}</span></span><span class="c-biz">${esc(l.crm.bizarea)||'<span style="color:var(--faint)">미지정</span>'}${l.item?`<small>${esc(l.item)}</small>`:''}</span><span class="chev" aria-hidden="true">▾</span></button>${o?dropHtml(l):''}</div>`}).join('')||'<div class="empty">표시할 업체가 없습니다.</div>'}</div>`;
 }
 function ctrl(l,it){
   const [k,,,t,o]=it;const v=l.crm[k]==null?'':l.crm[k];const id='f-'+k;
