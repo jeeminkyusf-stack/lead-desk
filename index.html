@@ -373,7 +373,8 @@ function addDays(n){const d=new Date();d.setDate(d.getDate()+n);return today(d);
 function load(){try{const v=localStorage.getItem(KEY);if(v){const o=JSON.parse(v);if(o&&Array.isArray(o.leads))return o;}}catch(e){storageOK=false;}return null;}
 let saveT=0;
 function writeLocal(){try{localStorage.setItem(KEY,JSON.stringify(S));storageOK=true;}catch(e){storageOK=false;}}
-function persist(){if(sess)S.pendingSync=true;writeLocal();sync();}
+let rev=0;
+function persist(){rev++;if(sess)S.pendingSync=true;writeLocal();sync();}
 /* Supabase: 공개용 키만 사용. 접근 제어는 DB의 RLS가 담당한다 */
 const SB_URL='https://bberccestktirszcghlj.supabase.co',SB_KEY='sb_publishable_gRT8h0lk59bwauqq76uwtg_RcfE25m_',SESS='sales-hub-session';
 let sess=null,loaded=false,syncing=false,syncAgain=false,syncErr=false,syncTimer=0;
@@ -428,9 +429,12 @@ async function sync(){
 }
 function setStatus(){const e=$('sync-status');if(e)e.textContent=syncErr?'서버 저장 실패 · 30초 후 재시도':'서버에 저장됨';}
 async function loadServer(){
+  const r0=rev;
   const rows=await rest('leads?select=id,data');
   const st=await rest('app_settings?key=eq.main&select=value');
   const mr=await rest('meetings?select=id,company,starts_at,place,memo,reminders,lead_id');
+  /* 불러오는 사이 화면에서 고친 내용이 있으면 옛 서버 값으로 덮지 않는다 */
+  if(loaded&&rev!==r0){await sync();return;}
   const srv=mr.map(r=>Object.assign({id:r.id,company:r.company,place:r.place||'',memo:r.memo||'',reminders:r.reminders||[],lead_id:r.lead_id||null},fromIso(r.starts_at)));
   synced.meet={};srv.forEach(m=>{synced.meet[m.id]=JSON.stringify(mRow(m));});
   if(S.pendingSync){const ids=new Set(S.meetings.map(m=>m.id));S.meetings=S.meetings.concat(srv.filter(m=>!ids.has(m.id)));}else S.meetings=srv;
