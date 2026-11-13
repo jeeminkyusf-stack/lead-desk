@@ -603,7 +603,7 @@ function inboxCard(it){
   </div>`;
 }
 function viewInbox(){
-  const list=S.inbox;
+  const list=[...S.inbox].sort((a,b)=>String(a.date).localeCompare(String(b.date)));
   return `<div class="head"><h1>인입함</h1><button class="btn" data-act="in-imp">${V.inImp?'가져오기 닫기':'JSON 가져오기'}</button></div>
   <p class="note">메일·메신저에서 읽어 온 건입니다. 내용을 확인한 뒤 고객사로 등록하거나, 기존 고객사의 활동 기록으로 붙이세요. 등록 전까지는 고객사 목록·일정·팀 CRM에 나타나지 않습니다.</p>
   ${V.inImp?`<section class="panel"><textarea id="in-json" rows="8" placeholder='[{"company":"…","source":"보낸 메일","date":"2026-11-13","subject":"…","summary":"…"}]'></textarea><div class="acts"><button class="btn primary" data-act="in-imp-go">인입함에 넣기</button></div></section>`:''}
