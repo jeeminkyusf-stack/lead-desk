@@ -54,6 +54,11 @@ h2{font-size:14px;font-weight:700;margin:0}
 .tag{display:inline-flex;align-items:center;height:22px;padding:0 8px;border-radius:3px;font-size:12px;font-weight:600;white-space:nowrap}
 .t-특송{background:var(--blue-d);color:#fff}.t-풀필먼트{background:var(--blue-m);color:#fff}.t-포워딩{background:var(--blue-l);color:var(--blue-d)}
 .t-none{background:var(--line2);color:var(--sub)}
+.t-new{background:var(--blue);color:#fff}
+.ib{margin-bottom:12px}.ib p{margin:6px 0}.ib-req{margin:6px 0;padding-left:20px}
+.ib-dl{display:grid;grid-template-columns:80px 1fr;gap:4px 10px;margin:8px 0}.ib-dl dt{color:var(--sub)}.ib-dl dd{margin:0}
+.ib-f{display:grid;grid-template-columns:2fr 1fr 1fr;gap:8px;margin-top:8px}.ib-f label{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--sub)}
+@media(max-width:700px){.ib-f{grid-template-columns:1fr}}
 .tags{display:flex;flex-wrap:wrap;gap:4px}
 .table{background:var(--panel);border:1px solid var(--line);border-radius:6px;overflow:hidden}
 .tr{display:grid;grid-template-columns:minmax(0,1.4fr) 220px minmax(0,1fr) minmax(0,1fr) 20px;gap:12px;align-items:center;padding:11px 16px;width:100%;border:0;background:none;text-align:left}
@@ -395,13 +400,13 @@ async function rest(path,opt){
   return r.json().catch(()=>null);
 }
 const UPSERT={Prefer:'resolution=merge-duplicates,return=minimal'};
-function settingsJson(){return JSON.stringify({owner:S.owner||'',lastBackup:S.lastBackup||null});}
+function settingsJson(){return JSON.stringify({owner:S.owner||'',lastBackup:S.lastBackup||null,inSkip:S.inSkip||[]});}
 async function sync(){
   if(!sess||!loaded)return;
   if(syncing){syncAgain=true;return;}
   syncing=true;clearTimeout(syncTimer);
   try{
-    const now={};S.leads.filter(l=>!l.example).forEach(l=>{now[l.id]=JSON.stringify(l);});
+    const now={};S.leads.filter(l=>!l.example).concat(S.inbox).forEach(l=>{now[l.id]=JSON.stringify(l);});
     const stamp=new Date().toISOString();
     const up=Object.keys(now).filter(id=>now[id]!==synced.lead[id]).map(id=>({id,data:JSON.parse(now[id]),updated_at:stamp}));
     const del=Object.keys(synced.lead).filter(id=>!(id in now));
@@ -430,13 +435,14 @@ async function loadServer(){
   synced.meet={};srv.forEach(m=>{synced.meet[m.id]=JSON.stringify(mRow(m));});
   if(S.pendingSync){const ids=new Set(S.meetings.map(m=>m.id));S.meetings=S.meetings.concat(srv.filter(m=>!ids.has(m.id)));}else S.meetings=srv;
   const localReal=S.leads.filter(l=>!l.example);
-  if(rows.length&&!(S.pendingSync&&localReal.length)){
-    S.leads=rows.map(r=>r.data).sort((a,b)=>String(b.created||'').localeCompare(String(a.created||'')));
-    synced.lead={};S.leads.forEach(l=>{synced.lead[l.id]=JSON.stringify(l);});
+  if(rows.length&&!(S.pendingSync&&(localReal.length||S.inbox.length))){
+    const all=rows.map(r=>r.data).sort((a,b)=>String(b.created||'').localeCompare(String(a.created||'')));
+    S.leads=all.filter(x=>!x.inbox);S.inbox=all.filter(x=>x.inbox);
+    synced.lead={};all.forEach(l=>{synced.lead[l.id]=JSON.stringify(l);});
   }else if(rows.length){
     synced.lead={};rows.forEach(r=>{synced.lead[r.id]='';});
   }
-  if(st&&st[0]&&st[0].value&&!S.pendingSync){S.owner=st[0].value.owner||S.owner||'';S.lastBackup=st[0].value.lastBackup||S.lastBackup||null;synced.settings=settingsJson();}
+  if(st&&st[0]&&st[0].value&&!S.pendingSync){S.owner=st[0].value.owner||S.owner||'';S.lastBackup=st[0].value.lastBackup||S.lastBackup||null;S.inSkip=st[0].value.inSkip||S.inSkip||[];synced.settings=settingsJson();}
   S.leads.forEach(norm);
   S.meetings.forEach(m=>{if(!m.lead_id||!S.leads.some(l=>l.id===m.lead_id))m.lead_id=leadIdByName(m.company);});
   loaded=true;
@@ -461,7 +467,7 @@ if(!S){
   S={leads:[],lastBackup:null,owner:''};
   [SAMPLE,SAMPLE2].forEach((t,i)=>{const e=buildLead(parseLead(t));e.id='EX'+i;e.example=true;if(!i){e.crm.nextDate=addDays(-1);e.crm.nextAction='회사소개서 회신 확인';e.crm.stage='초기 접촉';}S.leads.push(e);});
 }
-S.meetings=S.meetings||[];S.leads.forEach(norm);
+S.meetings=S.meetings||[];S.inbox=S.inbox||[];S.leads.forEach(norm);
 const $=id=>document.getElementById(id);
 const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 let V={name:'home',id:null,tab:'전체',open:null,entry:false,draft:'',armed:null,restore:null,fuType:'이메일',fuDate:today(),fuAct:'메일 발송',fuBody:''};
@@ -473,7 +479,7 @@ const tagHtml=s=>`<span class="tag t-${s}">${s}</span>`;
 function nav(){
   const n=S.leads.filter(l=>!isClosed(l)).length;
   if(V.name==='login'||V.name==='loading'){$('rail').innerHTML='<div class="brand">Sales Hub</div>';return;}
-  $('rail').innerHTML='<div class="brand">Sales Hub</div>'+[['home','고객사',n],['meetings','일정',upcoming().length||''],['data','설정·백업','']].map(([k,t,c])=>`<button class="nav" data-act="go" data-v="${k}" ${V.name===k||(k==='home'&&V.name==='lead')?'aria-current="page"':''}><span>${t}</span><span>${c}</span></button>`).join('')+`<p class="status" id="sync-status">${syncErr?'서버 저장 실패 · 30초 후 재시도':'서버에 저장됨'}</p>`;
+  $('rail').innerHTML='<div class="brand">Sales Hub</div>'+[['home','고객사',n],['inbox','인입함',S.inbox.length||''],['meetings','일정',upcoming().length||''],['data','설정·백업','']].map(([k,t,c])=>`<button class="nav" data-act="go" data-v="${k}" ${V.name===k||(k==='home'&&V.name==='lead')?'aria-current="page"':''}><span>${t}</span><span>${c}</span></button>`).join('')+`<p class="status" id="sync-status">${syncErr?'서버 저장 실패 · 30초 후 재시도':'서버에 저장됨'}</p>`;
 }
 function inTab(l,t){if(t==='종결')return isClosed(l);if(isClosed(l))return false;if(t==='전체')return true;if(t==='미분류')return !l.services.length;return l.services.includes(t);}
 function entryHtml(){
@@ -558,6 +564,61 @@ function ctrl(l,it){
 }
 const hints=(k,a)=>a&&a.length?`<div class="hints">${a.map(x=>`<button class="btn sm" data-act="hint" data-k="${k}" data-v="${esc(x)}">${esc(x)}</button>`).join('')}</div>`:'';
 function fuText(){const d=shortDate(V.fuDate);const b=V.fuBody.split('\n').map(s=>s.trim()).filter(Boolean);return [d+' '+V.fuAct.trim(),...b].filter(s=>s.trim()).join(' - ');}
+/* 인입함: 메일·메신저에서 읽어 온 건. 검토 후 고객사로 등록하거나 기존 고객사의 활동 기록으로 붙인다 */
+const IN_KIND=['신규 리드','기존 고객사'];
+function inMatch(it){const n=String(it.company||'').replace(/\s|\(주\)|㈜|주식회사/g,'');if(!n)return null;return S.leads.find(l=>!l.example&&[l.crm.nameKo,l.crm.nameCn].some(x=>String(x||'').replace(/\s|\(주\)|㈜|주식회사/g,'')===n))||null;}
+function inNorm(o){
+  const arr=v=>Array.isArray(v)?v.map(String).filter(Boolean):String(v||'').split(/\n|;/).map(s=>s.trim()).filter(Boolean);
+  const it={id:'IN'+Date.now().toString(36)+Math.random().toString(36).slice(2,6),inbox:true,created:today(),
+    source:String(o.source||'메일'),key:String(o.key||''),date:String(o.date||''),subject:String(o.subject||''),to:String(o.to||''),
+    company:String(o.company||'').trim(),contact:String(o.contact||''),email:String(o.email||''),phone:String(o.phone||''),
+    services:arr(o.services).filter(s=>SERVICES.includes(s)),countries:String(o.countries||''),item:String(o.item||''),
+    summary:String(o.summary||''),requests:arr(o.requests),nextAction:String(o.nextAction||''),nextDate:String(o.nextDate||''),
+    stage:OPT.stage.includes(o.stage)?o.stage:'초기 접촉',intake:INTAKE.includes(o.intake)?o.intake:'자체 발굴',bizarea:OPT.biz.includes(o.bizarea)?o.bizarea:''};
+  it.kind=IN_KIND.includes(o.kind)?o.kind:(inMatch(it)?'기존 고객사':'신규 리드');
+  if(!it.key)it.key=[it.source,it.date,it.subject,it.to].join('|');
+  return it;
+}
+/* 외부(수집 스크립트·붙여넣기)에서 넣는 입구. 같은 key는 한 번만 들어간다 */
+function inboxAdd(list){
+  const seen=new Set([...S.inbox.map(x=>x.key),...S.leads.flatMap(l=>l.inKeys||[]),...(S.inSkip||[])]);let n=0,skip=0;
+  (Array.isArray(list)?list:[list]).forEach(o=>{if(!o||!(o.company||o.subject)){skip++;return;}const it=inNorm(o);if(seen.has(it.key)){skip++;return;}seen.add(it.key);S.inbox.unshift(it);n++;});
+  if(n)persist();render();return {added:n,skipped:skip};
+}
+window.inboxAdd=inboxAdd;
+function inText(it){return [shortDate(it.date)+' '+(it.source||'메일')+(it.subject?' 「'+it.subject+'」':''),it.summary,...it.requests.map((r,i)=>(i+1)+'. '+r)].filter(s=>String(s).trim()).join(' - ');}
+function inboxCard(it){
+  const m=inMatch(it),neu=it.kind==='신규 리드'&&!m;
+  const meta=[it.source,shortDate(it.date),it.to&&('받는 사람 '+it.to)].filter(Boolean).join(' · ');
+  return `<div class="box ib" data-in="${esc(it.id)}"><div class="dh"><h3>${esc(it.company||'회사명 미확인')} <span class="tag ${neu?'t-new':'t-none'}">${neu?'신규 리드':'기존 고객사'}</span></h3><button class="link" data-act="in-del" data-id="${esc(it.id)}">삭제</button></div>
+  <p class="note">${esc(meta)}${it.subject?'<br>제목: '+esc(it.subject):''}</p>
+  ${it.summary?`<p>${esc(it.summary)}</p>`:''}
+  ${it.requests.length?`<ol class="ib-req">${it.requests.map(r=>`<li>${esc(r)}</li>`).join('')}</ol>`:''}
+  <dl class="ib-dl">${[['담당자',it.contact],['이메일',it.email],['연락처',it.phone],['서비스',it.services.join(', ')],['국가',it.countries],['품목',it.item],['다음 액션',[shortDate(it.nextDate),it.nextAction].filter(Boolean).join(' ')]].filter(x=>x[1]).map(([k,v])=>`<dt>${k}</dt><dd>${esc(v)}</dd>`).join('')}</dl>
+  ${m?`<div class="acts"><span class="note">기존 고객사 「${esc(m.crm.nameKo)}」와 이름이 같습니다.</span><button class="btn primary" data-act="in-log" data-id="${esc(it.id)}">활동 기록으로 추가</button></div>`
+  :`<div class="ib-f"><label>회사명<input data-inf="company" data-id="${esc(it.id)}" value="${esc(it.company)}"></label>
+    <label>인입 구분<select data-inf="intake" data-id="${esc(it.id)}">${INTAKE.map(x=>`<option ${x===it.intake?'selected':''}>${x}</option>`).join('')}</select></label>
+    <label>세일즈 단계<select data-inf="stage" data-id="${esc(it.id)}">${OPT.stage.map(x=>`<option ${x===it.stage?'selected':''}>${x}</option>`).join('')}</select></label></div>
+    <div class="acts"><button class="btn primary" data-act="in-reg" data-id="${esc(it.id)}">고객사로 등록</button></div>`}
+  </div>`;
+}
+function viewInbox(){
+  const list=S.inbox;
+  return `<div class="head"><h1>인입함</h1><button class="btn" data-act="in-imp">${V.inImp?'가져오기 닫기':'JSON 가져오기'}</button></div>
+  <p class="note">메일·메신저에서 읽어 온 건입니다. 내용을 확인한 뒤 고객사로 등록하거나, 기존 고객사의 활동 기록으로 붙이세요. 등록 전까지는 고객사 목록·일정·팀 CRM에 나타나지 않습니다.</p>
+  ${V.inImp?`<section class="panel"><textarea id="in-json" rows="8" placeholder='[{"company":"…","source":"보낸 메일","date":"2026-11-13","subject":"…","summary":"…"}]'></textarea><div class="acts"><button class="btn primary" data-act="in-imp-go">인입함에 넣기</button></div></section>`:''}
+  ${list.length?list.map(inboxCard).join(''):'<div class="empty">새로 들어온 건이 없습니다.</div>'}`;
+}
+function inRegister(it){
+  const l=buildLead(parseLead(''));
+  Object.assign(l.crm,{nameKo:it.company,nameCn:it.company,contact:it.contact,phone:it.phone,email:it.email,channel:it.intake==='자체 발굴'?'SELF':'',bizarea:it.bizarea,
+    countries:it.countries,inquiry:[it.summary,...it.requests.map((r,i)=>(i+1)+'. '+r)].filter(Boolean).join('\n'),stage:it.stage,nextDate:it.nextDate,nextAction:it.nextAction});
+  l.track.stage=it.stage;l.services=it.services.slice();l.item=it.item;l.summary=it.summary;l.intake=it.intake;l.inquiryDate=it.date;
+  l.requests=it.requests.map(t=>({text:t,status:'검토 전',answer:'',cats:classify(t)}));
+  l.followups=[{type:'이메일',date:it.date||today(),text:inText(it),synced:false}];
+  l.inKeys=[it.key];
+  return l;
+}
 function viewLead(){
   const l=S.leads.find(x=>x.id===V.id);if(!l){V.name='home';return viewHome();}
   const set=copied[l.id]||{};
@@ -764,7 +825,7 @@ async function pushTest(){
   }catch(e){toast('발송 서버에 연결하지 못했습니다.');}
   finally{PUSH.busy=false;paintPush();}
 }
-function render(){nav();$('menu-btn').hidden=V.name==='login'||V.name==='loading';$('view').innerHTML=({home:viewHome,lead:viewLead,meetings:viewMeetings,data:viewData,login:viewLogin,loading:viewLoading}[V.name]||viewHome)();}
+function render(){nav();$('menu-btn').hidden=V.name==='login'||V.name==='loading';$('view').innerHTML=({home:viewHome,inbox:viewInbox,lead:viewLead,meetings:viewMeetings,data:viewData,login:viewLogin,loading:viewLoading}[V.name]||viewHome)();}
 document.addEventListener('submit',async e=>{
   if(e.target.id!=='login-form')return;
   e.preventDefault();
@@ -815,6 +876,11 @@ document.addEventListener('click',async ev=>{
     case 'p-off':pushOff();break;
     case 'p-test':pushTest();break;
     case 'go':V.name=b.dataset.v;render();scrollTo(0,0);break;
+    case 'in-imp':V.inImp=!V.inImp;render();break;
+    case 'in-imp-go':{let o;try{o=JSON.parse($('in-json').value);}catch(x){toast('JSON 형식이 아닙니다.');break;}V.inImp=false;const r=inboxAdd(o);toast(r.added+'건을 넣었습니다.'+(r.skipped?' 중복·빈 항목 '+r.skipped+'건 제외':''));break;}
+    case 'in-del':{const it=S.inbox.find(x=>x.id===b.dataset.id);if(!it)break;if(V.armed!=='in'+it.id){V.armed='in'+it.id;b.textContent='한 번 더 누르면 삭제';break;}V.armed=null;S.inSkip=[...(S.inSkip||[]),it.key].slice(-500);S.inbox=S.inbox.filter(x=>x!==it);persist();render();break;}
+    case 'in-log':{const it=S.inbox.find(x=>x.id===b.dataset.id),m=it&&inMatch(it);if(!m)break;m.followups.unshift({type:'이메일',date:it.date||today(),text:inText(it),synced:false});m.inKeys=[...(m.inKeys||[]),it.key];S.inbox=S.inbox.filter(x=>x!==it);persist();render();toast('「'+m.crm.nameKo+'」 활동 기록에 추가했습니다.');break;}
+    case 'in-reg':{const it=S.inbox.find(x=>x.id===b.dataset.id);if(!it)break;it.company=String(it.company||'').trim();if(!it.company){toast('회사명을 입력해 주세요.');break;}if(inMatch(it)){render();toast('같은 이름의 고객사가 있어 활동 기록으로 붙일 수 있습니다.');break;}S.leads=S.leads.filter(x=>!x.example);const n=inRegister(it);S.leads.unshift(n);S.inbox=S.inbox.filter(x=>x!==it);persist();render();toast('「'+n.crm.nameKo+'」를 고객사로 등록했습니다.');break;}
     case 'tab':V.tab=b.dataset.t;V.open=null;render();break;
     case 'toggle':V.open=V.open===b.dataset.id?null:b.dataset.id;render();break;
     case 'entry':V.entry=!V.entry;render();break;
@@ -854,7 +920,7 @@ document.addEventListener('click',async ev=>{
     case 'fu-del':l.followups.splice(i,1);persist();render();break;
     case 'backup':backup();break;
     case 'logout':setSess(null);try{localStorage.removeItem(KEY);}catch(e){}location.reload();break;
-    case 'restore-ok':S=V.restore;S.owner=S.owner||'';S.meetings=S.meetings||[];S.leads.forEach(norm);V.restore=null;persist();render();toast('복원했습니다.');break;
+    case 'restore-ok':S=V.restore;S.owner=S.owner||'';S.meetings=S.meetings||[];S.inbox=S.inbox||[];S.leads.forEach(norm);V.restore=null;persist();render();toast('복원했습니다.');break;
     case 'restore-no':V.restore=null;render();break;
   }
 });
@@ -868,6 +934,7 @@ document.addEventListener('input',e=>{
   const t=e.target,d=t.dataset;
   if(d.m){V.mForm[d.m]=t.value;return;}
   if(d.dr){V.dr[d.dr]=t.value;return;}
+  if(d.inf){const it=S.inbox.find(x=>x.id===d.id);if(it){it[d.inf]=t.value;save();}return;}
   if(d.q){V.qForm[d.q]=t.value;return;}
   if(d.mx&&t.tagName!=='SELECT'){const l=leadOf();if(l&&l.mix[+d.i]){l.mix[+d.i][d.mx]=t.value;save();}return;}
   if(t.id==='draft'){V.draft=t.value;$('pv').innerHTML=previewHtml();return;}
@@ -880,6 +947,7 @@ document.addEventListener('input',e=>{
 document.addEventListener('change',e=>{
   const t=e.target;
   if(t.id==='restore-file'){const f=t.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{try{const o=JSON.parse(r.result);if(!o||!Array.isArray(o.leads))throw 0;V.restore=o;render();}catch(x){toast('Sales Hub 백업 파일이 아닙니다.');}};r.readAsText(f);return;}
+  if(t.dataset.inf){const it=S.inbox.find(x=>x.id===t.dataset.id);if(it){it[t.dataset.inf]=t.value;persist();}return;}
   if(t.dataset.mk!=null){const l=leadOf();if(!l)return;const m=t.dataset.mk;l.markets=t.checked?[...new Set([...l.markets,m])]:l.markets.filter(x=>x!==m);const v=t.closest('.ms').querySelector('.ms-v');if(v)v.textContent=l.markets.join(', ')||'선택';persist();return;}
   if(t.type==='checkbox'&&t.dataset.l){const l=leadOf();l[t.dataset.l][+t.dataset.i][t.dataset.k]=t.checked;persist();render();return;}
   if(t.id==='q-files'){V.qFiles=[...t.files];render();return;}
