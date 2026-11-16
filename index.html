@@ -401,7 +401,7 @@ async function rest(path,opt){
   return r.json().catch(()=>null);
 }
 const UPSERT={Prefer:'resolution=merge-duplicates,return=minimal'};
-function settingsJson(){return JSON.stringify({owner:S.owner||'',lastBackup:S.lastBackup||null,inSkip:S.inSkip||[]});}
+function settingsJson(){return JSON.stringify({owner:S.owner||'',lastBackup:S.lastBackup||null,inSkip:S.inSkip||[],salesId:S.salesId||''});}
 async function sync(){
   if(!sess||!loaded)return;
   if(syncing){syncAgain=true;return;}
@@ -446,7 +446,7 @@ async function loadServer(){
   }else if(rows.length){
     synced.lead={};rows.forEach(r=>{synced.lead[r.id]='';});
   }
-  if(st&&st[0]&&st[0].value&&!S.pendingSync){S.owner=st[0].value.owner||S.owner||'';S.lastBackup=st[0].value.lastBackup||S.lastBackup||null;S.inSkip=st[0].value.inSkip||S.inSkip||[];synced.settings=settingsJson();}
+  if(st&&st[0]&&st[0].value&&!S.pendingSync){S.owner=st[0].value.owner||S.owner||'';S.lastBackup=st[0].value.lastBackup||S.lastBackup||null;S.inSkip=st[0].value.inSkip||S.inSkip||[];S.salesId=st[0].value.salesId||S.salesId||'';synced.settings=settingsJson();}
   S.leads.forEach(norm);
   S.meetings.forEach(m=>{if(!m.lead_id||!S.leads.some(l=>l.id===m.lead_id))m.lead_id=leadIdByName(m.company);});
   loaded=true;
@@ -456,7 +456,7 @@ async function boot(){
   try{sess=JSON.parse(localStorage.getItem(SESS)||'null');}catch(e){sess=null;}
   if(!sess){V.name='login';render();return;}
   V.name='loading';render();
-  try{await loadServer();V.name=landing();}
+  try{await loadServer();V.name=landing();loadAccts().then(()=>{if(ACC&&['inbox','lead','data'].includes(V.name))render();});}
   catch(e){if(e.status===401||e.status===400){setSess(null);V.name='login';V.loginErr='다시 로그인해 주세요.';}else{V.name=landing();syncErr=true;}}
   render();
   refreshPush();
@@ -666,6 +666,113 @@ function inboxAdd(list){
   if(n)persist();render();return {added:n,skipped:skip};
 }
 window.inboxAdd=inboxAdd;
+/* 어카운트 마스터: 매주 오는 KR Credit Customer List에서 Sales person이 내 사번인 계정만, 사업 정보만 서버 accounts에 올린다.
+   대표·담당자·연락처·이메일·주소·우편번호는 올리지 않는다(민규 결정 2026-11-16). 고객사 메뉴에 자동 등록하지 않고 조회·매칭에만 쓴다 */
+let ACC=null,ACC_B=null;
+const ACCT_COLS=[['network','Network Code'],['location','Location'],['opened','Opening Date'],['account','# Account'],['nameKo','Company (KR)'],['nameEn','Company (EN)'],['taxId','Tax ID'],['activated','Activated Date'],['deactivated','Deactivation Date'],['sales','Sales person'],['ddp','DDP'],['kr3rd','KR 3rd Party paid Service'],['os3rd','OS 3rd Party paid Service'],['lead','Lead（CS/BA /Sales）'],['invoice','Invoice Issuance Cycle'],['credit','Credit Term'],['limit','Credit limit(KRW)'],['deposit','Deposit'],['type','Account Type'],['remark','Remark'],['level','Credit Level'],['score','Score'],['cms','CMS'],['evalDate','기관평가일자'],['snm','SNM 조회월']];
+const ACCT_DATE=['opened','activated','deactivated','evalDate'];
+const hk=s=>String(s||'').replace(/\s+/g,'').toLowerCase();
+const xmlDec=s=>String(s).replace(/&#(\d+);/g,(m,n)=>String.fromCharCode(+n)).replace(/&#x([0-9a-f]+);/gi,(m,n)=>String.fromCharCode(parseInt(n,16))).replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&quot;/g,'"').replace(/&apos;/g,"'").replace(/&amp;/g,'&');
+function zipIndex(buf){
+  const dv=new DataView(buf),u8=new Uint8Array(buf);let e=-1;
+  for(let i=buf.byteLength-22;i>=Math.max(0,buf.byteLength-66000);i--)if(dv.getUint32(i,true)===0x06054b50){e=i;break;}
+  if(e<0)throw new Error('xlsx 파일이 아닙니다.');
+  const n=dv.getUint16(e+10,true);let p=dv.getUint32(e+16,true);const out={};
+  for(let k=0;k<n;k++){
+    if(dv.getUint32(p,true)!==0x02014b50)break;
+    const m=dv.getUint16(p+10,true),cs=dv.getUint32(p+20,true),nl=dv.getUint16(p+28,true),xl=dv.getUint16(p+30,true),cl=dv.getUint16(p+32,true),lo=dv.getUint32(p+42,true);
+    const name=new TextDecoder().decode(u8.subarray(p+46,p+46+nl));
+    const s=lo+30+dv.getUint16(lo+26,true)+dv.getUint16(lo+28,true);
+    out[name]={m,s,cs};p+=46+nl+xl+cl;
+  }
+  return {u8,files:out};
+}
+function zStream(z,name){
+  const f=z.files[name];if(!f)throw new Error(name+' 없음');
+  let st=new Blob([z.u8.subarray(f.s,f.s+f.cs)]).stream();
+  if(f.m===8)st=st.pipeThrough(new DecompressionStream('deflate-raw'));
+  return st.pipeThrough(new TextDecoderStream());
+}
+async function zText(z,name){let t='';const r=zStream(z,name).getReader();for(;;){const {done,value}=await r.read();if(done)break;t+=value;}return t;}
+async function zRows(z,name,fn){
+  const r=zStream(z,name).getReader();let buf='';
+  const eat=s=>{const re=/<row\b[^>]*>([\s\S]*?)<\/row>/g;let m;while((m=re.exec(s)))fn(m[1]);};
+  for(;;){const {done,value}=await r.read();if(done)break;buf+=value;const i=buf.lastIndexOf('</row>');if(i>=0){eat(buf.slice(0,i+6));buf=buf.slice(i+6);}}
+  eat(buf);
+}
+function xCells(row,ss){
+  const o={},re=/<c r="([A-Z]+)\d+"([^>]*?)(?:\/>|>([\s\S]*?)<\/c>)/g;let m;
+  while((m=re.exec(row))){const inner=m[3]||'';let v='';const vv=/<v>([\s\S]*?)<\/v>/.exec(inner);
+    if(/t="s"/.test(m[2])&&vv)v=ss[+vv[1]]||'';else if(/t="inlineStr"/.test(m[2]))v=xmlDec((inner.match(/<t[^>]*>([\s\S]*?)<\/t>/g)||[]).map(x=>x.replace(/<[^>]+>/g,'')).join(''));else if(vv)v=xmlDec(vv[1]);
+    o[m[1]]=String(v).trim();}
+  return o;
+}
+const xDate=v=>/^\d{5}(\.\d+)?$/.test(v)?new Date(Math.round((+v-25569)*864e5)).toISOString().slice(0,10):v;
+async function acctParse(file,me,onStep){
+  const z=zipIndex(await file.arrayBuffer());
+  onStep('공유 문자열 읽는 중');
+  const sst=z.files['xl/sharedStrings.xml']?await zText(z,'xl/sharedStrings.xml'):'';
+  const ss=[];sst.replace(/<si>([\s\S]*?)<\/si>/g,(m,s)=>{ss.push(xmlDec((s.replace(/<rPh\b[\s\S]*?<\/rPh>/g,'').match(/<t[^>]*>([\s\S]*?)<\/t>/g)||[]).map(x=>x.replace(/<[^>]+>/g,'')).join('')));return '';});
+  const wb=await zText(z,'xl/workbook.xml'),rels=await zText(z,'xl/_rels/workbook.xml.rels');
+  const tgt={};rels.replace(/<Relationship\b[^>]*>/g,m=>{const id=(m.match(/Id="([^"]+)"/)||[])[1],t=(m.match(/Target="([^"]+)"/)||[])[1];if(id&&t)tgt[id]='xl/'+t.replace(/^\/?xl\//,'').replace(/^\//,'');return '';});
+  const sheets=[];wb.replace(/<sheet\b[^>]*>/g,m=>{const n=xmlDec((m.match(/name="([^"]+)"/)||[])[1]||''),id=(m.match(/r:id="([^"]+)"/)||[])[1];sheets.push([n,tgt[id]]);return '';});
+  const want=[['Credit Account','활성'],['Deactivated Account','비활성']],out={};let seen=0;
+  for(const [sn,status] of want){
+    const sh=sheets.find(x=>x[0].trim()===sn);if(!sh)throw new Error('「'+sn+'」 시트가 없습니다. KR Credit Customer List 파일인지 확인해 주세요.');
+    onStep(sn+' 시트 읽는 중');
+    let map=null;
+    await zRows(z,sh[1],row=>{
+      if(!map){const h=xCells(row,ss);map={};for(const c in h){const k=hk(xmlDec(h[c]));const hit=ACCT_COLS.find(([,lab])=>k.includes(hk(lab)));if(hit&&!Object.values(map).includes(hit[0]))map[c]=hit[0];}return;}
+      if(row.indexOf('<v>')<0&&row.indexOf('<t')<0)return;
+      const c=xCells(row,ss),r={};for(const col in map)if(c[col])r[map[col]]=c[col];
+      let no=String(r.account||'').replace(/\D/g,'');if(!no)return;seen++;if(/^8\d{8}$/.test(no))no='0'+no;
+      if(!String(r.sales||'').includes(me))return;
+      ACCT_DATE.forEach(k=>{if(r[k])r[k]=xDate(r[k]);});
+      r.account=no;r.status=status;out[no]=r;
+    });
+    if(!map||!Object.values(map).includes('account')||!Object.values(map).includes('sales'))throw new Error('「'+sn+'」 머리글에서 # Account·Sales person 열을 찾지 못했습니다.');
+  }
+  return {rows:out,seen};
+}
+async function loadAccts(force){
+  if(ACC&&!force)return;
+  try{
+    const rows=await rest('accounts?select=account_no,data');ACC={};(rows||[]).forEach(r=>{ACC[r.account_no]=r.data;});
+    const b=await rest('import_batches?kind=eq.credit_list&select=period_label,file_name,row_count,imported_at&order=imported_at.desc&limit=1');ACC_B=b&&b[0]||null;
+  }catch(e){ACC=ACC||null;}
+}
+async function acctUpload(file){
+  const me=String(S.salesId||'').trim();if(!me){toast('먼저 「Credit List 담당자 사번」을 입력해 주세요.');return;}
+  const step=t=>{V.acctMsg=t;render();};
+  try{
+    step('파일 여는 중');
+    const {rows,seen}=await acctParse(file,me,step);
+    const n=Object.keys(rows).length;if(!n)throw new Error('Sales person이 '+me+'인 계정이 없습니다(전체 '+seen+'행).');
+    await loadAccts(true);
+    const pm=(file.name.match(/(\d{4})_(\d{2})(\d{2})/)||[]),label=pm[1]?pm[1]+'-'+pm[2]+'-'+pm[3]:today();
+    const stamp=new Date().toISOString(),up=[];
+    for(const no in rows)up.push({account_no:no,data:Object.assign(rows[no],{list:label,inList:true}),updated_at:stamp});
+    let gone=0;for(const no in (ACC||{}))if(!rows[no]&&ACC[no].inList!==false){up.push({account_no:no,data:Object.assign({},ACC[no],{inList:false,droppedAt:label}),updated_at:stamp});gone++;}
+    for(let i=0;i<up.length;i+=500){step('서버에 올리는 중 '+Math.min(i+500,up.length)+'/'+up.length);await rest('accounts',{method:'POST',headers:UPSERT,body:JSON.stringify(up.slice(i,i+500))});}
+    await rest('import_batches',{method:'POST',headers:{Prefer:'return=minimal'},body:JSON.stringify([{kind:'credit_list',period_label:label,file_name:file.name,row_count:n}])});
+    await loadAccts(true);
+    const act=Object.values(rows).filter(r=>r.status==='활성').length;
+    step('완료: '+label+' 기준 '+n+'계정(활성 '+act+' · 비활성 '+(n-act)+')'+(gone?' · 목록에서 빠진 계정 '+gone+'건 표시':''));
+  }catch(e){step('실패: '+(e&&e.message||e));}
+}
+const nmKey=s=>String(s||'').toLowerCase().replace(/\(주\)|㈜|주식회사|\(유\)|유한회사|co\.?,?\s*ltd\.?|corporation|corp\.?|inc\.?|limited|[\s.,()\-&'"]/g,'');
+function acctFind(name,bizNo){
+  if(!ACC)return [];const b=String(bizNo||'').replace(/\D/g,''),n=nmKey(name);
+  return Object.values(ACC).filter(a=>(b.length>=10&&String(a.taxId||'').replace(/\D/g,'')===b)||(n.length>=2&&(nmKey(a.nameKo)===n||nmKey(a.nameEn)===n))).sort((x,y)=>(x.status==='활성'?0:1)-(y.status==='활성'?0:1));
+}
+const acctLabel=a=>[a.account,a.nameKo||a.nameEn,a.inList===false?'최근 목록에서 빠짐':a.status].filter(Boolean).join(' · ');
+function acctInfoHtml(no){
+  const a=ACC&&ACC[no];
+  if(!ACC)return '';
+  if(!a)return '<p class="note">어카운트 마스터(내 담당 계정)에 없는 번호입니다.</p>';
+  const yn=v=>v?esc(v):'—';
+  return `<dl class="ib-dl"><dt>계정</dt><dd>${esc(acctLabel(a))}</dd><dt>개설일</dt><dd>${yn(a.opened)}${a.deactivated?' · 비활성 '+esc(a.deactivated):''}</dd><dt>신용</dt><dd>${[a.level&&'등급 '+a.level,a.credit&&'주기 '+a.credit,a.invoice&&'청구 '+a.invoice].filter(Boolean).map(esc).join(' · ')||'—'}</dd><dt>서비스</dt><dd>${[a.ddp&&'DDP '+a.ddp,a.kr3rd&&'KR 3rd '+a.kr3rd,a.os3rd&&'OS 3rd '+a.os3rd,a.cms&&'CMS '+a.cms].filter(Boolean).map(esc).join(' · ')||'—'}</dd><dt>기준</dt><dd>Credit List ${yn(a.list)}</dd></dl>`;
+}
 function inText(it){return [shortDate(it.date)+' '+(it.source||'메일')+(it.subject?' 「'+it.subject+'」':''),it.summary,...it.requests.map((r,i)=>(i+1)+'. '+r)].filter(s=>String(s).trim()).join(' - ');}
 function inboxCard(it){
   const m=inMatch(it),neu=it.kind==='신규 리드'&&!m;
@@ -680,8 +787,16 @@ function inboxCard(it){
     <label>인입 구분<select data-inf="intake" data-id="${esc(it.id)}">${INTAKE.map(x=>`<option ${x===it.intake?'selected':''}>${x}</option>`).join('')}</select></label>
     <label>세일즈 단계<select data-inf="stage" data-id="${esc(it.id)}">${OPT.stage.map(x=>`<option ${x===it.stage?'selected':''}>${x}</option>`).join('')}</select></label>
     <label>SF 어카운트 번호<input data-inf="account" data-id="${esc(it.id)}" inputmode="numeric" maxlength="12" placeholder="기존 고객사로 등록할 때 입력" value="${esc(it.account)}"></label></div>
+    ${inAcctHtml(it)}
     <div class="acts"><button class="btn${it.account?'':' primary'}" data-act="in-reg" data-to="new" data-id="${esc(it.id)}">신규 영업으로 등록</button><button class="btn${it.account?' primary':''}" data-act="in-reg" data-to="acct" data-id="${esc(it.id)}">기존 고객사로 등록</button></div>`}
   </div>`;
+}
+function inAcctHtml(it){
+  if(!ACC)return '';
+  const no=String(it.account||'').replace(/\D/g,'');
+  if(no){const a=ACC[no];return `<p class="note">${a?'어카운트 마스터 확인: '+esc(acctLabel(a)):'어카운트 마스터(내 담당 계정)에 없는 번호입니다. 다른 담당자 계정일 수 있습니다.'}</p>`;}
+  const hit=acctFind(it.company).slice(0,3);
+  return hit.length?`<div class="acts" style="justify-content:flex-start;flex-wrap:wrap">${hit.map(a=>`<span class="note">어카운트 마스터 일치: ${esc(acctLabel(a))}</span><button class="btn sm" data-act="in-acc" data-id="${esc(it.id)}" data-no="${esc(a.account)}">번호 넣기</button>`).join('')}</div>`:'';
 }
 function viewInbox(){
   const list=[...S.inbox].sort((a,b)=>String(a.date).localeCompare(String(b.date)));
@@ -738,7 +853,7 @@ function overviewHtml(l,miss){
   const q=l.quotes.slice().sort((a,b)=>b.round-a.round||String(b.date).localeCompare(a.date))[0];
   const next=leadMeetings(l).filter(m=>mKey(m)>=kstNow()).sort((a,b)=>mKey(a).localeCompare(mKey(b)))[0];
   return `<div class="ov"><section class="panel"><h2>진행 현황</h2>
-  <div><label class="lb" for="o-acc">SF 어카운트 번호</label><input id="o-acc" data-acc="1" inputmode="numeric" maxlength="12" placeholder="08로 시작하는 10자리 · 넣으면 기존 고객사로 이동" value="${esc(l.account||'')}"></div>
+  <div><label class="lb" for="o-acc">SF 어카운트 번호</label><input id="o-acc" data-acc="1" inputmode="numeric" maxlength="12" placeholder="08로 시작하는 10자리 · 넣으면 기존 고객사로 이동" value="${esc(l.account||'')}">${l.account?acctInfoHtml(l.account):(()=>{const h=acctFind(l.crm.nameKo,l.bizNo).concat(acctFind(l.crm.nameCn)).filter((a,i,s)=>s.indexOf(a)===i).slice(0,3);return h.map(a=>`<div class="acts" style="justify-content:flex-start"><span class="note">어카운트 마스터 일치: ${esc(acctLabel(a))}</span><button class="btn sm" data-act="acc-put" data-no="${esc(a.account)}">번호 넣기</button></div>`).join('');})()}</div>
   <div><span class="lb">인입 구분</span><div class="seg">${INTAKE.map(x=>`<button class="tog" data-act="intake" data-v="${x}" aria-pressed="${l.intake===x}">${x}</button>`).join('')}</div></div>
   <div><span class="lb">이용 서비스 (복수 선택)</span><div class="seg">${SERVICES.map(s=>`<button class="tog" data-act="svc" data-s="${s}" aria-pressed="${l.services.includes(s)}">${s}</button>`).join('')}</div></div>
   <div><label class="lb" for="o-biz">물성 (사업영역)</label>${bizHtml(l,'o-biz')}</div>
@@ -817,6 +932,11 @@ async function saveQuote(l){
 }
 function viewData(){
   return `<h1>설정·백업</h1><section class="panel" style="max-width:640px"><div><label class="lb" for="owner">담당자 이름 (CRM 표기대로)</label><input id="owner" data-v2="owner" value="${esc(S.owner)}"><p class="note" style="margin-top:4px">새로 등록하는 업체의 담당자 칸에 자동으로 입력됩니다.</p></div></section>
+  <section class="panel" style="max-width:640px"><h2>어카운트 마스터</h2>${(()=>{const v=Object.values(ACC||{}),on=v.filter(a=>a.inList!==false),act=on.filter(a=>a.status==='활성').length;return `<dl><dt>내 담당 계정</dt><dd>${ACC?`${on.length}건 (활성 ${act} · 비활성 ${on.length-act})${v.length>on.length?` · 목록에서 빠짐 ${v.length-on.length}`:''}`:'불러오지 못함'}</dd><dt>기준 파일</dt><dd>${ACC_B?esc(ACC_B.period_label+' · '+ACC_B.file_name+' · '+String(ACC_B.imported_at).slice(0,10)+' 올림'):'없음'}</dd></dl>`;})()}
+  <div><label class="lb" for="sales-id">Credit List 담당자 사번</label><input id="sales-id" data-v2="salesId" inputmode="numeric" value="${esc(S.salesId||'')}"><p class="note" style="margin-top:4px">Sales person 칸에 이 사번이 들어 있는 계정만 올립니다.</p></div>
+  <div><label class="lb" for="acct-file">KR Credit Customer List (.xlsx)</label><input id="acct-file" type="file" accept=".xlsx" style="height:auto;padding:4px"></div>
+  ${V.acctMsg?`<p class="note">${esc(V.acctMsg)}</p>`:''}
+  <p class="note">매주 메일로 오는 파일을 그대로 선택하시면 됩니다. 활성·비활성 시트에서 내 담당 계정의 사업 정보만 서버에 올리고, 대표·담당자·연락처·이메일·주소는 올리지 않습니다. 고객사 메뉴에 자동으로 추가하지 않고 번호 조회·인입함 매칭에만 씁니다.</p></section>
   <section class="panel" style="max-width:640px"><h2>백업</h2><dl><dt>업체</dt><dd>${S.leads.filter(l=>!l.example).length}건</dd><dt>마지막</dt><dd>${S.lastBackup?esc(S.lastBackup.slice(0,10)):'없음'}</dd></dl><p class="note">데이터는 서버(Supabase)에 저장됩니다. 백업은 필요할 때만 받으시면 됩니다. 백업 파일에는 고객 연락처가 포함됩니다. 견적 첨부파일 자체는 백업 파일에 들어가지 않고 서버 저장소에만 있습니다.</p><div class="acts" style="justify-content:flex-start"><button class="btn primary" data-act="backup">백업 파일 저장</button><button class="btn" data-act="logout">로그아웃</button></div></section>
   <section class="panel" style="max-width:640px"><h2>복원</h2><input id="restore-file" type="file" accept=".json,application/json" aria-label="백업 파일 선택" style="height:auto;padding:4px">${V.restore?`<div class="notice"><span>현재 데이터를 업체 ${V.restore.leads.length}건으로 덮어씁니다.</span><span class="acts"><button class="btn sm" data-act="restore-no">취소</button><button class="btn sm primary" data-act="restore-ok">덮어쓰기</button></span></div>`:''}</section>`;
 }
@@ -935,7 +1055,7 @@ document.addEventListener('submit',async e=>{
     keepSess(await authCall('token?grant_type=password',{email:$('login-email').value.trim(),password:$('login-pw').value}));
     V.name='loading';render();
     await loadServer();
-    V.name=landing();
+    V.name=landing();loadAccts().then(()=>{if(ACC&&['inbox','lead','data'].includes(V.name))render();});
   }catch(x){
     if(x.status===400||x.status===401){setSess(null);V.name='login';V.loginErr='이메일 또는 비밀번호가 맞지 않습니다.';}
     else if(sess){V.name=landing();syncErr=true;}
@@ -979,6 +1099,8 @@ document.addEventListener('click',async ev=>{
     case 'go':V.name=b.dataset.v;render();scrollTo(0,0);break;
     case 'in-imp':V.inImp=!V.inImp;render();break;
     case 'crmx-make':{const list=crmxPool().filter(l=>V.cx&&V.cx[l.id]);if(!list.length)break;const d=today();const a=document.createElement('a');a.href=URL.createObjectURL(xlsxBlob('Customers',crmxRows(list)));a.download='CRM_가져오기_'+d.replace(/-/g,'')+'.xlsx';document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),5000);list.forEach(l=>{l.crmExported=d;l.history.push({at:new Date().toISOString(),text:'팀 CRM 가져오기 파일 생성'});});persist();render();toast(list.length+'곳 파일을 만들었습니다. CRM에 올린 뒤 각 업체에서 「팀 CRM 반영 완료」를 눌러 주세요.');break;}
+    case 'in-acc':{const it=S.inbox.find(x=>x.id===b.dataset.id);if(!it)break;it.account=b.dataset.no;persist();render();break;}
+    case 'acc-put':{const l=leadOf();if(!l)break;const was=l.trackAcct||'';l.account=b.dataset.no;l.history.push({at:new Date().toISOString(),text:'어카운트 번호: '+(was||'—')+' → '+l.account+' (어카운트 마스터 일치, 기존 고객사로 이동)'});l.trackAcct=l.account;persist();render();toast('기존 고객사로 옮겼습니다.');break;}
     case 'in-imp-go':{let o;try{o=JSON.parse($('in-json').value);}catch(x){toast('JSON 형식이 아닙니다.');break;}V.inImp=false;const r=inboxAdd(o);toast(r.added+'건을 넣었습니다.'+(r.skipped?' 중복·빈 항목 '+r.skipped+'건 제외':''));break;}
     case 'in-del':{const it=S.inbox.find(x=>x.id===b.dataset.id);if(!it)break;if(V.armed!=='in'+it.id){V.armed='in'+it.id;b.textContent='한 번 더 누르면 삭제';break;}V.armed=null;S.inSkip=[...(S.inSkip||[]),it.key].slice(-5000);S.inbox=S.inbox.filter(x=>x!==it);persist();render();break;}
     case 'in-log':{const it=S.inbox.find(x=>x.id===b.dataset.id),m=it&&inMatch(it);if(!m)break;m.followups.unshift({type:'이메일',date:it.date||today(),text:inText(it),synced:false});m.inKeys=[...(m.inKeys||[]),it.key];S.inbox=S.inbox.filter(x=>x!==it);persist();render();toast('「'+m.crm.nameKo+'」 활동 기록에 추가했습니다.');break;}
@@ -1049,6 +1171,7 @@ document.addEventListener('input',e=>{
 });
 document.addEventListener('change',e=>{
   const t=e.target;
+  if(t.id==='acct-file'){const f=t.files[0];if(f)acctUpload(f);return;}
   if(t.id==='restore-file'){const f=t.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{try{const o=JSON.parse(r.result);if(!o||!Array.isArray(o.leads))throw 0;V.restore=o;render();}catch(x){toast('Sales Hub 백업 파일이 아닙니다.');}};r.readAsText(f);return;}
   if(t.dataset.inf){const it=S.inbox.find(x=>x.id===t.dataset.id);if(it){it[t.dataset.inf]=t.value;persist();}return;}
   if(t.dataset.cx){V.cx=V.cx||{};V.cx[t.dataset.cx]=t.checked;render();return;}
