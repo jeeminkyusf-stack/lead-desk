@@ -799,7 +799,8 @@ async function acctParse(file,me,onStep){
       if(row.indexOf('<v>')<0&&row.indexOf('<t')<0)return;
       const c=xCells(row,ss),r={};for(const col in map)if(c[col])r[map[col]]=c[col];
       let no=String(r.account||'').replace(/\D/g,'');if(!no)return;seen++;if(/^8\d{8}$/.test(no))no='0'+no;
-      if(!String(r.sales||'').includes(me))return;
+      /* 담당자 칸 표기가 원본마다 다르다(메일 첨부: 이름+사번, DingTalk 표: 「JEE Min Kyu」만, 2026-11-24 확인) → 쉼표로 여러 표기를 받아 하나라도 들어 있으면 내 계정 */
+      const sp=String(r.sales||'').toLowerCase();if(!me.split(',').map(x=>x.trim().toLowerCase()).filter(Boolean).some(x=>sp.includes(x)))return;
       ACCT_DATE.forEach(k=>{if(r[k])r[k]=xDate(r[k]);});
       let s=status;if(!s){const y=String(r.st||'').trim().toUpperCase();s=y==='Y'?'활성':y==='N'?'비활성':'';}
       if(!status&&s==='비활성'&&r.activated&&!r.deactivated){r.deactivated=r.activated;delete r.activated;}
@@ -818,12 +819,12 @@ async function loadAccts(force){
   }catch(e){ACC=ACC||null;}
 }
 async function acctUpload(file){
-  const me=String(S.salesId||'').trim();if(!me){toast('먼저 「Credit List 담당자 사번」을 입력해 주세요.');return;}
+  const me=String(S.salesId||'').trim();if(!me){toast('먼저 「Sales person 표기」를 입력해 주세요.');return;}
   const step=t=>{V.acctMsg=t;render();};
   try{
     step('파일 여는 중');
     const {rows,seen}=await acctParse(file,me,step);
-    const n=Object.keys(rows).length;if(!n)throw new Error('Sales person이 '+me+'인 계정이 없습니다(전체 '+seen+'행).');
+    const n=Object.keys(rows).length;if(!n)throw new Error('Sales person에 「'+me+'」가 들어간 계정이 없습니다(전체 '+seen+'행). 표기를 확인해 주세요.');
     await loadAccts(true);
     const pm=(file.name.match(/(\d{4})_(\d{2})(\d{2})/)||[]),label=pm[1]?pm[1]+'-'+pm[2]+'-'+pm[3]:today();
     const stamp=new Date().toISOString(),up=[];
@@ -1009,7 +1010,7 @@ async function saveQuote(l){
 function viewData(){
   return `<h1>설정·백업</h1><section class="panel" style="max-width:640px"><div><label class="lb" for="owner">담당자 이름 (CRM 표기대로)</label><input id="owner" data-v2="owner" value="${esc(S.owner)}"><p class="note" style="margin-top:4px">새로 등록하는 업체의 담당자 칸에 자동으로 입력됩니다.</p></div></section>
   <section class="panel" style="max-width:640px"><h2>어카운트 마스터</h2>${(()=>{const v=Object.values(ACC||{}),on=v.filter(a=>a.inList!==false),act=on.filter(a=>a.status==='활성').length;return `<dl><dt>내 담당 계정</dt><dd>${ACC?`${on.length}건 (활성 ${act} · 비활성 ${on.length-act})${v.length>on.length?` · 목록에서 빠짐 ${v.length-on.length}`:''}`:'불러오지 못함'}</dd><dt>기준 파일</dt><dd>${ACC_B?esc(ACC_B.period_label+' · '+ACC_B.file_name+' · '+String(ACC_B.imported_at).slice(0,10)+' 올림'):'없음'}</dd></dl>`;})()}
-  <div><label class="lb" for="sales-id">Credit List 담당자 사번</label><input id="sales-id" data-v2="salesId" inputmode="numeric" value="${esc(S.salesId||'')}"><p class="note" style="margin-top:4px">Sales person 칸에 이 사번이 들어 있는 계정만 올립니다.</p></div>
+  <div><label class="lb" for="sales-id">Sales person 표기 (이름·사번, 쉼표로 여러 개)</label><input id="sales-id" data-v2="salesId" value="${esc(S.salesId||'')}"><p class="note" style="margin-top:4px">Sales person 칸에 이 중 하나라도 들어 있는 계정만 올립니다. DingTalk 표는 이름(예: JEE Min Kyu)만 적혀 있습니다.</p></div>
   <div><label class="lb" for="acct-file">KR Credit Customer List (.xlsx)</label><input id="acct-file" type="file" accept=".xlsx" style="height:auto;padding:4px"></div>
   ${V.acctMsg?`<p class="note">${esc(V.acctMsg)}</p>`:''}
   <p class="note">DingTalk 「KR Credit Customer List」 표에서 ⋮ → Export → Export to excel로 받은 파일을 선택하시면 됩니다(예전 메일 첨부 파일도 읽습니다). 내보낸 파일은 다운로드 폴더가 아니라 00_어카운트마스터 폴더에 두십시오. Status(Y/N)로 활성·비활성을 나누고, 내 담당 계정의 사업 정보만 서버에 올리고, 대표·담당자·연락처·이메일·주소는 올리지 않습니다. 고객사 메뉴에 자동으로 추가하지 않고 번호 조회·인입함 매칭에만 씁니다.</p></section>
