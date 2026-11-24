@@ -814,7 +814,8 @@ async function acctParse(file,me,onStep){
 async function loadAccts(force){
   if(ACC&&!force)return;
   try{
-    const rows=await rest('accounts?select=account_no,data');ACC={};(rows||[]).forEach(r=>{ACC[r.account_no]=r.data;});
+    /* 서버는 한 번에 1,000행까지만 준다(2026-11-24 실측: 1,739건 중 1,000건만 옴) → 1,000행씩 나눠 읽는다 */
+    const A={};for(let o=0;;o+=1000){const rows=await rest('accounts?select=account_no,data&order=account_no&limit=1000&offset='+o)||[];rows.forEach(r=>{A[r.account_no]=r.data;});if(rows.length<1000)break;}ACC=A;
     const b=await rest('import_batches?kind=eq.credit_list&select=period_label,file_name,row_count,imported_at&order=imported_at.desc&limit=1');ACC_B=b&&b[0]||null;
   }catch(e){ACC=ACC||null;}
 }
