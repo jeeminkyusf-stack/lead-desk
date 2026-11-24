@@ -739,7 +739,7 @@ window.hubServerCheck=async(keys)=>{
 /* 어카운트 마스터: 매주 오는 KR Credit Customer List에서 Sales person이 내 사번인 계정만, 사업 정보만 서버 accounts에 올린다.
    대표·담당자·연락처·이메일·주소·우편번호는 올리지 않는다(민규 결정 2026-11-16). 고객사 메뉴에 자동 등록하지 않고 조회·매칭에만 쓴다 */
 let ACC=null,ACC_B=null;
-const ACCT_COLS=[['network','Network Code'],['location','Location'],['opened','Opening Date'],['account','# Account'],['nameKo','Company (KR)'],['nameEn','Company (EN)'],['taxId','Tax ID'],['activated','Activated Date'],['deactivated','Deactivation Date'],['sales','Sales person'],['ddp','DDP'],['kr3rd','KR 3rd Party paid Service'],['os3rd','OS 3rd Party paid Service'],['lead','Lead（CS/BA /Sales）'],['invoice','Invoice Issuance Cycle'],['credit','Credit Term'],['limit','Credit limit(KRW)'],['deposit','Deposit'],['type','Account Type'],['remark','Remark'],['level','Credit Level'],['score','Score'],['cms','CMS'],['evalDate','기관평가일자'],['snm','SNM 조회월']];
+const ACCT_COLS=[['network','Network Code'],['location','Location'],['opened','Opening Date'],['account','# Account'],['nameKo','Company (KR)'],['nameEn','Company (EN)'],['taxId','Tax ID'],['activated','Activated Date'],['deactivated','Deactivation Date'],['sales','Sales person'],['ddp','DDP'],['kr3rd','KR 3rd Party paid Service'],['os3rd','OS 3rd Party paid Service'],['lead','Lead'],['invoice','Invoice Issuance Cycle'],['credit','Credit Term'],['limit','Credit limit(KRW)'],['deposit','Deposit'],['type','Account Type'],['remark','Remark'],['level','Credit Level'],['score','Score'],['cms','CMS'],['evalDate','기관평가일자'],['snm','SNM 조회월'],['closure','Closure Reason'],['st','Status']];
 const ACCT_DATE=['opened','activated','deactivated','evalDate'];
 const hk=s=>String(s||'').replace(/\s+/g,'').toLowerCase();
 const xmlDec=s=>String(s).replace(/&#(\d+);/g,(m,n)=>String.fromCharCode(+n)).replace(/&#x([0-9a-f]+);/gi,(m,n)=>String.fromCharCode(parseInt(n,16))).replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&quot;/g,'"').replace(/&apos;/g,"'").replace(/&amp;/g,'&');
@@ -786,9 +786,12 @@ async function acctParse(file,me,onStep){
   const wb=await zText(z,'xl/workbook.xml'),rels=await zText(z,'xl/_rels/workbook.xml.rels');
   const tgt={};rels.replace(/<Relationship\b[^>]*>/g,m=>{const id=(m.match(/Id="([^"]+)"/)||[])[1],t=(m.match(/Target="([^"]+)"/)||[])[1];if(id&&t)tgt[id]='xl/'+t.replace(/^\/?xl\//,'').replace(/^\//,'');return '';});
   const sheets=[];wb.replace(/<sheet\b[^>]*>/g,m=>{const n=xmlDec((m.match(/name="([^"]+)"/)||[])[1]||''),id=(m.match(/r:id="([^"]+)"/)||[])[1];sheets.push([n,tgt[id]]);return '';});
-  const want=[['Credit Account','활성'],['Deactivated Account','비활성']],out={};let seen=0;
+  /* 두 형식을 읽는다: ① 메일 첨부(Credit Account·Deactivated Account 시트로 활성 구분)
+     ② DingTalk 표 내보내기(2026-11-24부터 원본, 시트 1개·「状态 Status」 열 Y/N로 구분, 활성일/비활성일이 한 열) */
+  const old=sheets.some(x=>x[0].trim()==='Credit Account');
+  const want=old?[['Credit Account','활성'],['Deactivated Account','비활성']]:[[sheets[0]&&sheets[0][0],'']],out={};let seen=0;
   for(const [sn,status] of want){
-    const sh=sheets.find(x=>x[0].trim()===sn);if(!sh)throw new Error('「'+sn+'」 시트가 없습니다. KR Credit Customer List 파일인지 확인해 주세요.');
+    const sh=sheets.find(x=>x[0].trim()===String(sn).trim());if(!sh)throw new Error('「'+sn+'」 시트가 없습니다. KR Credit Customer List 파일인지 확인해 주세요.');
     onStep(sn+' 시트 읽는 중');
     let map=null;
     await zRows(z,sh[1],row=>{
@@ -798,9 +801,12 @@ async function acctParse(file,me,onStep){
       let no=String(r.account||'').replace(/\D/g,'');if(!no)return;seen++;if(/^8\d{8}$/.test(no))no='0'+no;
       if(!String(r.sales||'').includes(me))return;
       ACCT_DATE.forEach(k=>{if(r[k])r[k]=xDate(r[k]);});
-      r.account=no;r.status=status;out[no]=r;
+      let s=status;if(!s){const y=String(r.st||'').trim().toUpperCase();s=y==='Y'?'활성':y==='N'?'비활성':'';}
+      if(!status&&s==='비활성'&&r.activated&&!r.deactivated){r.deactivated=r.activated;delete r.activated;}
+      delete r.st;r.account=no;r.status=s;out[no]=r;
     });
     if(!map||!Object.values(map).includes('account')||!Object.values(map).includes('sales'))throw new Error('「'+sn+'」 머리글에서 # Account·Sales person 열을 찾지 못했습니다.');
+    if(!old&&!Object.values(map).includes('st'))throw new Error('「'+sn+'」 머리글에서 Status 열을 찾지 못했습니다.');
   }
   return {rows:out,seen};
 }
@@ -1006,7 +1012,7 @@ function viewData(){
   <div><label class="lb" for="sales-id">Credit List 담당자 사번</label><input id="sales-id" data-v2="salesId" inputmode="numeric" value="${esc(S.salesId||'')}"><p class="note" style="margin-top:4px">Sales person 칸에 이 사번이 들어 있는 계정만 올립니다.</p></div>
   <div><label class="lb" for="acct-file">KR Credit Customer List (.xlsx)</label><input id="acct-file" type="file" accept=".xlsx" style="height:auto;padding:4px"></div>
   ${V.acctMsg?`<p class="note">${esc(V.acctMsg)}</p>`:''}
-  <p class="note">매주 메일로 오는 파일을 그대로 선택하시면 됩니다. 활성·비활성 시트에서 내 담당 계정의 사업 정보만 서버에 올리고, 대표·담당자·연락처·이메일·주소는 올리지 않습니다. 고객사 메뉴에 자동으로 추가하지 않고 번호 조회·인입함 매칭에만 씁니다.</p></section>
+  <p class="note">DingTalk 「KR Credit Customer List」 표에서 ⋮ → Export → Export to excel로 받은 파일을 선택하시면 됩니다(예전 메일 첨부 파일도 읽습니다). 내보낸 파일은 다운로드 폴더가 아니라 00_어카운트마스터 폴더에 두십시오. Status(Y/N)로 활성·비활성을 나누고, 내 담당 계정의 사업 정보만 서버에 올리고, 대표·담당자·연락처·이메일·주소는 올리지 않습니다. 고객사 메뉴에 자동으로 추가하지 않고 번호 조회·인입함 매칭에만 씁니다.</p></section>
   <section class="panel" style="max-width:640px"><h2>백업</h2><dl><dt>업체</dt><dd>${S.leads.filter(l=>!l.example).length}건</dd><dt>마지막</dt><dd>${S.lastBackup?esc(S.lastBackup.slice(0,10)):'없음'}</dd></dl><p class="note">데이터는 서버(Supabase)에 저장됩니다. 백업은 필요할 때만 받으시면 됩니다. 백업 파일에는 고객 연락처가 포함됩니다. 견적 첨부파일 자체는 백업 파일에 들어가지 않고 서버 저장소에만 있습니다.</p><div class="acts" style="justify-content:flex-start"><button class="btn primary" data-act="backup">백업 파일 저장</button><button class="btn" data-act="logout">로그아웃</button></div></section>
   <section class="panel" style="max-width:640px"><h2>복원</h2><input id="restore-file" type="file" accept=".json,application/json" aria-label="백업 파일 선택" style="height:auto;padding:4px">${V.restore?`<div class="notice"><span>현재 데이터를 업체 ${V.restore.leads.length}건으로 덮어씁니다.</span><span class="acts"><button class="btn sm" data-act="restore-no">취소</button><button class="btn sm primary" data-act="restore-ok">덮어쓰기</button></span></div>`:''}</section>`;
 }
