@@ -492,7 +492,7 @@ async function boot(){
   try{sess=JSON.parse(localStorage.getItem(SESS)||'null');}catch(e){sess=null;}
   if(!sess){V.name='login';render();return;}
   V.name='loading';render();
-  try{await loadServer();V.name=landing();loadAccts().then(()=>{if(ACC&&['inbox','lead','data'].includes(V.name))render();});}
+  try{await loadServer();V.name=landing();loadAccts().then(()=>{if(ACC&&['inbox','lead','data','home','accounts'].includes(V.name))render();});}
   catch(e){if(e.status===401||e.status===400){setSess(null);V.name='login';V.loginErr='다시 로그인해 주세요.';}else{V.name=landing();syncErr=true;}}
   render();
   refreshPush();
@@ -615,6 +615,7 @@ function viewHome(){
   ${storageOK?'':'<div class="notice">이 브라우저에서 저장이 차단되어 새로고침하면 입력 내용이 사라집니다.</div>'}
   ${ex?'<div class="notice"><span>지금 보이는 업체는 가상 예시입니다. 첫 업체를 등록하면 자동으로 지워집니다.</span><button class="btn sm" data-act="clear-ex">예시 지우기</button></div>':''}
   ${syncErr?'<div class="notice">서버에 저장하지 못했습니다. 입력 내용은 이 브라우저에 보관 중이며 자동으로 다시 시도합니다.</div>':''}
+  ${acctStale()?`<div class="notice">어카운트 마스터가 ${acctStale()}일 전 기준입니다(갱신 주기 ${ACCT_CYCLE}일). DingTalk 표에서 내보내 설정·백업 화면에서 올려 주세요. <button class="link" data-act="go" data-v="data">설정으로</button></div>`:''}
   ${acct?'':`<div class="filters"><span class="lb" style="margin:0">인입 구분</span><div class="seg">${['전체',...INTAKE].map(x=>`<button class="tog" data-act="intake-f" data-v="${x}" aria-pressed="${fi===x}">${x}<b style="font-weight:400;margin-left:4px">${x==='전체'?base.length:base.filter(l=>l.intake===x).length}</b></button>`).join('')}</div></div>`}
   <div class="tabs" role="tablist">${tabs.map(t=>`<button class="tab" role="tab" data-act="tab" data-t="${t}" aria-selected="${V.tab===t}">${t}<b>${pool.filter(l=>inTab(l,t)).length}</b></button>`).join('')}</div>
   <div class="filters lf"><span class="lb" style="margin:0">할 일</span><div class="chips">${TODO.map(x=>`<button class="chip ${x==='지연'?'warn':''}" data-act="todo-f" data-v="${x}" aria-pressed="${todo===x}">${x}<b>${x==='전체'?tabbed.length:tabbed.filter(l=>todoOf(l)===x).length}</b></button>`).join('')}</div></div>
@@ -739,6 +740,9 @@ window.hubServerCheck=async(keys)=>{
 /* 어카운트 마스터: 매주 오는 KR Credit Customer List에서 Sales person이 내 사번인 계정만, 사업 정보만 서버 accounts에 올린다.
    대표·담당자·연락처·이메일·주소·우편번호는 올리지 않는다(민규 결정 2026-11-16). 고객사 메뉴에 자동 등록하지 않고 조회·매칭에만 쓴다 */
 let ACC=null,ACC_B=null;
+/* 갱신 주기 7일(민규 결정 2026-11-24, 이전 메일 첨부와 같은 주기). 기준 파일을 올린 날로부터 지나면 경과 일수, 아니면 0 */
+const ACCT_CYCLE=7;
+function acctStale(){if(!ACC_B||!ACC_B.imported_at)return 0;const d=Math.floor((Date.now()-new Date(ACC_B.imported_at).getTime())/864e5);return d>ACCT_CYCLE?d:0;}
 const ACCT_COLS=[['network','Network Code'],['location','Location'],['opened','Opening Date'],['account','# Account'],['nameKo','Company (KR)'],['nameEn','Company (EN)'],['taxId','Tax ID'],['activated','Activated Date'],['deactivated','Deactivation Date'],['sales','Sales person'],['ddp','DDP'],['kr3rd','KR 3rd Party paid Service'],['os3rd','OS 3rd Party paid Service'],['lead','Lead'],['invoice','Invoice Issuance Cycle'],['credit','Credit Term'],['limit','Credit limit(KRW)'],['deposit','Deposit'],['type','Account Type'],['remark','Remark'],['level','Credit Level'],['score','Score'],['cms','CMS'],['evalDate','기관평가일자'],['snm','SNM 조회월'],['closure','Closure Reason'],['st','Status']];
 const ACCT_DATE=['opened','activated','deactivated','evalDate'];
 const hk=s=>String(s||'').replace(/\s+/g,'').toLowerCase();
@@ -1010,7 +1014,7 @@ async function saveQuote(l){
 }
 function viewData(){
   return `<h1>설정·백업</h1><section class="panel" style="max-width:640px"><div><label class="lb" for="owner">담당자 이름 (CRM 표기대로)</label><input id="owner" data-v2="owner" value="${esc(S.owner)}"><p class="note" style="margin-top:4px">새로 등록하는 업체의 담당자 칸에 자동으로 입력됩니다.</p></div></section>
-  <section class="panel" style="max-width:640px"><h2>어카운트 마스터</h2>${(()=>{const v=Object.values(ACC||{}),on=v.filter(a=>a.inList!==false),act=on.filter(a=>a.status==='활성').length;return `<dl><dt>내 담당 계정</dt><dd>${ACC?`${on.length}건 (활성 ${act} · 비활성 ${on.length-act})${v.length>on.length?` · 목록에서 빠짐 ${v.length-on.length}`:''}`:'불러오지 못함'}</dd><dt>기준 파일</dt><dd>${ACC_B?esc(ACC_B.period_label+' · '+ACC_B.file_name+' · '+String(ACC_B.imported_at).slice(0,10)+' 올림'):'없음'}</dd></dl>`;})()}
+  <section class="panel" style="max-width:640px"><h2>어카운트 마스터</h2>${(()=>{const v=Object.values(ACC||{}),on=v.filter(a=>a.inList!==false),act=on.filter(a=>a.status==='활성').length;return `<dl><dt>내 담당 계정</dt><dd>${ACC?`${on.length}건 (활성 ${act} · 비활성 ${on.length-act})${v.length>on.length?` · 목록에서 빠짐 ${v.length-on.length}`:''}`:'불러오지 못함'}</dd><dt>기준 파일</dt><dd>${ACC_B?esc(ACC_B.period_label+' · '+ACC_B.file_name+' · '+String(ACC_B.imported_at).slice(0,10)+' 올림')+(acctStale()?` <b style="color:#b42318">· ${acctStale()}일 경과, 갱신 필요</b>`:''):'없음'}</dd><dt>갱신 주기</dt><dd>${ACCT_CYCLE}일</dd></dl>`;})()}
   <div><label class="lb" for="sales-id">Sales person 표기 (이름·사번, 쉼표로 여러 개)</label><input id="sales-id" data-v2="salesId" value="${esc(S.salesId||'')}"><p class="note" style="margin-top:4px">Sales person 칸에 이 중 하나라도 들어 있는 계정만 올립니다. DingTalk 표는 이름(예: JEE Min Kyu)만 적혀 있습니다.</p></div>
   <div><label class="lb" for="acct-file">KR Credit Customer List (.xlsx)</label><input id="acct-file" type="file" accept=".xlsx" style="height:auto;padding:4px"></div>
   ${V.acctMsg?`<p class="note">${esc(V.acctMsg)}</p>`:''}
@@ -1133,7 +1137,7 @@ document.addEventListener('submit',async e=>{
     keepSess(await authCall('token?grant_type=password',{email:$('login-email').value.trim(),password:$('login-pw').value}));
     V.name='loading';render();
     await loadServer();
-    V.name=landing();loadAccts().then(()=>{if(ACC&&['inbox','lead','data'].includes(V.name))render();});
+    V.name=landing();loadAccts().then(()=>{if(ACC&&['inbox','lead','data','home','accounts'].includes(V.name))render();});
   }catch(x){
     if(x.status===400||x.status===401){setSess(null);V.name='login';V.loginErr='이메일 또는 비밀번호가 맞지 않습니다.';}
     else if(sess){V.name=landing();syncErr=true;}
