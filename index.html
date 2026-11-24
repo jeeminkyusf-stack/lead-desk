@@ -179,10 +179,10 @@ dt{color:var(--sub);font-size:13px}dd{margin:0;overflow-wrap:anywhere}
 .chips{display:flex;flex-wrap:wrap;gap:6px}
 .chip{height:28px;padding:0 10px;border:1px solid var(--line);border-radius:14px;background:#fff;color:var(--sub);font-size:13px;cursor:pointer;display:inline-flex;align-items:center;gap:5px}
 .chip b{font-weight:400;color:var(--faint)}
-.stbar{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px}
+.stbar{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px}
 .stb{display:flex;flex-direction:column;align-items:flex-start;gap:2px;padding:10px 14px;border:1px solid var(--line);border-top:3px solid var(--line);border-radius:6px;background:var(--panel);cursor:pointer;text-align:left;color:var(--sub);font-weight:500}
 .stb b{font-size:22px;font-weight:700;color:var(--ink);line-height:1.2}
-.stb.s-0{border-top-color:var(--blue)}.stb.s-1{border-top-color:#d08700}.stb.s-2{border-top-color:#1a7f4b}.stb.s-3{border-top-color:#8a96a8}.stb.s-4{border-top-color:#b42318}
+.stb.s-0{border-top-color:var(--blue)}.stb.s-1{border-top-color:#d08700}.stb.s-2{border-top-color:#1a7f4b}.stb.s-3{border-top-color:#8a96a8}.stb.s-4{border-top-color:#b42318}.stb.s-5{border-top-color:#b9c3d3}
 .stb:hover{background:var(--blue-l2)}
 .stb[aria-pressed="true"]{background:var(--blue-l);border-color:var(--blue);color:var(--blue-d)}.stb[aria-pressed="true"] b{color:var(--blue-d)}
 .chip[aria-pressed="true"]{background:var(--blue);border-color:var(--blue);color:#fff}.chip[aria-pressed="true"] b{color:#fff}
@@ -608,8 +608,9 @@ function sortList(a){
 const pgBtn=(t,n,dis,lab,cur)=>`<button class="pgb ${cur?'cur':''}" data-act="page" data-p="${n}" ${dis?'disabled':''} aria-label="${lab}" ${cur?'aria-current="page"':''}>${t}</button>`;
 function pgNums(p,n){if(n<=7)return Array.from({length:n},(_,i)=>i+1);const s=new Set([1,n,p-1,p,p+1].filter(x=>x>=1&&x<=n)),a=[...s].sort((x,y)=>x-y),o=[];a.forEach((x,i)=>{if(i&&x-a[i-1]>1)o.push('…');o.push(x);});return o;}
 /* 신규 영업의 맨 위 기준 = 진행 상태(민규 결정 2026-11-24). 수주 완료(어카운트 번호 있음)는 기존 고객사로 옮겨진 업체도 여기서 집계한다 */
-const STATUS=['진행 중','개설 진행','수주 완료','보류','실주'];
-function statusOf(l){if(isAcct(l))return '수주 완료';const s=l.crm.salestatus;if(s==='실주')return '실주';if(s==='보류')return '보류';if(l.crm.stage==='계약 체결')return '개설 진행';return '진행 중';}
+/* 리드 = 세일즈 단계 「리드」(콜드메일만 보낸 단계 등, 회신 전). 팀 CRM처럼 진행 중과 나눈다(민규 결정 2026-11-24) */
+const STATUS=['리드','진행 중','개설 진행','수주 완료','보류','실주'],ST_CLS={'리드':'s-5','진행 중':'s-0','개설 진행':'s-1','수주 완료':'s-2','보류':'s-3','실주':'s-4'};
+function statusOf(l){if(isAcct(l))return '수주 완료';const s=l.crm.salestatus;if(s==='실주')return '실주';if(s==='보류')return '보류';const g=l.crm.stage;if(g==='계약 체결')return '개설 진행';if(!g||g==='리드')return '리드';return '진행 중';}
 const inSvc=(l,t)=>t==='전체'||(t==='미분류'?!l.services.length:l.services.includes(t));
 function viewHome(){
   const acct=V.name==='accounts';
@@ -630,8 +631,8 @@ function viewHome(){
   ${ex?'<div class="notice"><span>지금 보이는 업체는 가상 예시입니다. 첫 업체를 등록하면 자동으로 지워집니다.</span><button class="btn sm" data-act="clear-ex">예시 지우기</button></div>':''}
   ${syncErr?'<div class="notice">서버에 저장하지 못했습니다. 입력 내용은 이 브라우저에 보관 중이며 자동으로 다시 시도합니다.</div>':''}
   ${acctStale()?`<div class="notice">어카운트 마스터가 ${acctStale()}일 전 기준입니다(갱신 주기 ${ACCT_CYCLE}일). DingTalk 표에서 내보내 설정·백업 화면에서 올려 주세요. <button class="link" data-act="go" data-v="data">설정으로</button></div>`:''}
-  ${acct?'':`<div class="stbar" role="group" aria-label="진행 상태">${STATUS.map(x=>{const n=all.filter(l=>statusOf(l)===x).length;return `<button class="stb s-${STATUS.indexOf(x)}" data-act="st-f" data-v="${x}" aria-pressed="${st===x}"><span>${x}</span><b>${n}</b></button>`;}).join('')}</div>
-  ${st==='수주 완료'?'<p class="note">어카운트 번호가 들어간 업체입니다. 관리는 「기존 고객사」 메뉴에서도 할 수 있습니다.</p>':st==='개설 진행'?'<p class="note">세일즈 단계가 「계약 체결」이고 어카운트 번호가 아직 없는 업체입니다. 번호를 넣으면 수주 완료로 넘어갑니다.</p>':(st==='보류'||st==='실주')?'<p class="note">상세의 「영업상태」가 '+st+'인 업체입니다.</p>':''}`}
+  ${acct?'':`<div class="stbar" role="group" aria-label="진행 상태">${STATUS.map(x=>{const n=all.filter(l=>statusOf(l)===x).length;return `<button class="stb ${ST_CLS[x]}" data-act="st-f" data-v="${x}" aria-pressed="${st===x}"><span>${x}</span><b>${n}</b></button>`;}).join('')}</div>
+  ${st==='리드'?'<p class="note">세일즈 단계가 「리드」인 업체입니다(콜드메일 발송 후 회신 전 등). 회신이 오면 단계를 「초기 접촉」 이상으로 바꾸면 진행 중으로 넘어갑니다.</p>':st==='수주 완료'?'<p class="note">어카운트 번호가 들어간 업체입니다. 관리는 「기존 고객사」 메뉴에서도 할 수 있습니다.</p>':st==='개설 진행'?'<p class="note">세일즈 단계가 「계약 체결」이고 어카운트 번호가 아직 없는 업체입니다. 번호를 넣으면 수주 완료로 넘어갑니다.</p>':(st==='보류'||st==='실주')?'<p class="note">상세의 「영업상태」가 '+st+'인 업체입니다.</p>':''}`}
   <div class="tabs" role="tablist">${tabs.map(t=>`<button class="tab" role="tab" data-act="tab" data-t="${t}" aria-selected="${tab===t}">${t}<b>${pool.filter(l=>inT(l,t)).length}</b></button>`).join('')}</div>
   ${acct?'':`<div class="filters lf"><span class="lb" style="margin:0">인입 구분</span><div class="chips">${['전체',...INTAKE].map(x=>`<button class="chip" data-act="intake-f" data-v="${x}" aria-pressed="${fi===x}">${x}<b>${x==='전체'?base.length:base.filter(l=>l.intake===x).length}</b></button>`).join('')}</div></div>`}
   <div class="filters lf"><span class="lb" style="margin:0">할 일</span><div class="chips">${TODO.map(x=>`<button class="chip ${x==='지연'?'warn':''}" data-act="todo-f" data-v="${x}" aria-pressed="${todo===x}">${x}<b>${x==='전체'?tabbed.length:tabbed.filter(l=>todoOf(l)===x).length}</b></button>`).join('')}</div></div>
