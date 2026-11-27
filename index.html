@@ -610,11 +610,13 @@ function pgNums(p,n){if(n<=7)return Array.from({length:n},(_,i)=>i+1);const s=ne
 /* 신규 영업의 맨 위 기준 = 진행 상태(민규 결정 2026-11-24). 수주 완료(어카운트 번호 있음)는 기존 고객사로 옮겨진 업체도 여기서 집계한다 */
 /* 리드 = 세일즈 단계 「리드」(콜드메일만 보낸 단계 등, 회신 전). 팀 CRM처럼 진행 중과 나눈다(민규 결정 2026-11-24) */
 const STATUS=['리드','진행 중','개설 진행','수주 완료','보류','실주'],ST_CLS={'리드':'s-5','진행 중':'s-0','개설 진행':'s-1','수주 완료':'s-2','보류':'s-3','실주':'s-4'};
+/* 이관 고객으로 받은 기존 어카운트는 수주 실적이 아니므로 신규 영업 상태 집계에서 뺀다(민규 지적 2026-11-27). 기존 고객사 메뉴에만 보인다 */
+const inherited=l=>isAcct(l)&&l.intake==='이관 고객';
 function statusOf(l){if(isAcct(l))return '수주 완료';const s=l.crm.salestatus;if(s==='실주')return '실주';if(s==='보류')return '보류';const g=l.crm.stage;if(g==='계약 체결')return '개설 진행';if(!g||g==='리드')return '리드';return '진행 중';}
 const inSvc=(l,t)=>t==='전체'||(t==='미분류'?!l.services.length:l.services.includes(t));
 function viewHome(){
   const acct=V.name==='accounts';
-  const st=V.st||'진행 중',all=S.leads.filter(l=>acct?(l.example||isAcct(l)):true);
+  const st=V.st||'진행 중',all=S.leads.filter(l=>acct?(l.example||isAcct(l)):!inherited(l));
   const base=acct?all:all.filter(l=>statusOf(l)===st);
   const tabs=acct?['전체',...SERVICES,'미분류','종결']:['전체',...SERVICES,'미분류'];
   const fi=acct?'전체':(V.intake||'전체'),pool=base.filter(l=>fi==='전체'||l.intake===fi);
@@ -624,7 +626,7 @@ function viewHome(){
   const list=sortList(tabbed.filter(l=>(todo==='전체'||todoOf(l)===todo)&&(stf==='전체'||l.crm.stage===stf)));
   const ps=pageSize(),pages=Math.max(1,Math.ceil(list.length/ps)),pg=Math.min(Math.max(1,V.lp||1),pages),shown=list.slice((pg-1)*ps,pg*ps);
   const ex=!acct&&S.leads.some(l=>l.example);
-  return `<div class="head"><h1>${acct?'기존 고객사':'신규 영업'}</h1>${acct?'':`<div class="acts"><button class="btn" data-act="go" data-v="crmx">팀 CRM 내보내기</button><button class="btn primary" data-act="entry">${V.entry?'입력 닫기':'+ 업체 등록'}</button></div>`}</div>
+  return `<div class="head"><h1>${acct?'기존 고객사':'신규 영업'}</h1>${acct?'':`<div class="acts"><button class="btn primary" data-act="entry">${V.entry?'입력 닫기':'+ 업체 등록'}</button></div>`}</div>
   ${acct?'<p class="note">SF 어카운트 번호가 있는 업체입니다. 신규 영업 업체에 어카운트 번호를 넣으면 여기로 옮겨집니다. 팀 CRM 내보내기 대상이 아닙니다.</p>':''}
   ${V.entry&&!acct?entryHtml():''}
   ${storageOK?'':'<div class="notice">이 브라우저에서 저장이 차단되어 새로고침하면 입력 내용이 사라집니다.</div>'}
@@ -632,7 +634,7 @@ function viewHome(){
   ${syncErr?'<div class="notice">서버에 저장하지 못했습니다. 입력 내용은 이 브라우저에 보관 중이며 자동으로 다시 시도합니다.</div>':''}
   ${acctStale()?`<div class="notice">어카운트 마스터가 ${acctStale()}일 전 기준입니다(갱신 주기 ${ACCT_CYCLE}일). DingTalk 표에서 내보내 설정·백업 화면에서 올려 주세요. <button class="link" data-act="go" data-v="data">설정으로</button></div>`:''}
   ${acct?'':`<div class="stbar" role="group" aria-label="진행 상태">${STATUS.map(x=>{const n=all.filter(l=>statusOf(l)===x).length;return `<button class="stb ${ST_CLS[x]}" data-act="st-f" data-v="${x}" aria-pressed="${st===x}"><span>${x}</span><b>${n}</b></button>`;}).join('')}</div>
-  ${st==='리드'?'<p class="note">세일즈 단계가 「리드」인 업체입니다(콜드메일 발송 후 회신 전 등). 회신이 오면 단계를 「초기 접촉」 이상으로 바꾸면 진행 중으로 넘어갑니다.</p>':st==='수주 완료'?'<p class="note">어카운트 번호가 들어간 업체입니다. 관리는 「기존 고객사」 메뉴에서도 할 수 있습니다.</p>':st==='개설 진행'?'<p class="note">세일즈 단계가 「계약 체결」이고 어카운트 번호가 아직 없는 업체입니다. 번호를 넣으면 수주 완료로 넘어갑니다.</p>':(st==='보류'||st==='실주')?'<p class="note">상세의 「영업상태」가 '+st+'인 업체입니다.</p>':''}`}
+  ${st==='리드'?'<p class="note">세일즈 단계가 「리드」인 업체입니다(콜드메일 발송 후 회신 전 등). 회신이 오면 단계를 「초기 접촉」 이상으로 바꾸면 진행 중으로 넘어갑니다.</p>':st==='수주 완료'?'<p class="note">신규 영업으로 어카운트를 개설한 업체입니다. 이관 고객(원래 어카운트가 있던 업체)은 「기존 고객사」 메뉴에만 보입니다.</p>':st==='개설 진행'?'<p class="note">세일즈 단계가 「계약 체결」이고 어카운트 번호가 아직 없는 업체입니다. 번호를 넣으면 수주 완료로 넘어갑니다.</p>':(st==='보류'||st==='실주')?'<p class="note">상세의 「영업상태」가 '+st+'인 업체입니다.</p>':''}`}
   <div class="tabs" role="tablist">${tabs.map(t=>`<button class="tab" role="tab" data-act="tab" data-t="${t}" aria-selected="${tab===t}">${t}<b>${pool.filter(l=>inT(l,t)).length}</b></button>`).join('')}</div>
   ${acct?'':`<div class="filters lf"><span class="lb" style="margin:0">인입 구분</span><div class="chips">${['전체',...INTAKE].map(x=>`<button class="chip" data-act="intake-f" data-v="${x}" aria-pressed="${fi===x}">${x}<b>${x==='전체'?base.length:base.filter(l=>l.intake===x).length}</b></button>`).join('')}</div></div>`}
   <div class="filters lf"><span class="lb" style="margin:0">할 일</span><div class="chips">${TODO.map(x=>`<button class="chip ${x==='지연'?'warn':''}" data-act="todo-f" data-v="${x}" aria-pressed="${todo===x}">${x}<b>${x==='전체'?tabbed.length:tabbed.filter(l=>todoOf(l)===x).length}</b></button>`).join('')}</div></div>
@@ -1102,7 +1104,7 @@ function pushHtml(){
   if(p==='install')return '<div class="notice">알림을 받으려면 Safari 공유 버튼에서 「홈 화면에 추가」 후, 홈 화면의 Anton Sales Hub 아이콘으로 실행해 주세요.</div>';
   if(p==='unsupported')return '<div class="notice">이 브라우저는 푸시 알림을 지원하지 않습니다.</div>';
   if(p==='denied')return '<div class="notice">이 기기에서 알림이 차단되어 있습니다. 휴대폰 설정의 알림 항목에서 Anton Sales Hub를 허용해 주세요.</div>';
-  if(p==='on')return `<div class="notice"><span>이 기기로 미팅 알림을 받습니다.</span><span class="acts"><button class="btn sm" data-act="p-test" ${d}>테스트 알림</button><button class="btn sm" data-act="p-off" ${d}>끄기</button></span></div>`;
+  if(p==='on')return `<div class="notice"><span>이 기기로 미팅 알림과 할 일 알림(평일 09시부터, 다음 날짜가 오늘·지난 업체를 지연 많은 순으로 1곳씩)을 받습니다.</span><span class="acts"><button class="btn sm" data-act="p-test" ${d}>테스트 알림</button><button class="btn sm" data-act="p-off" ${d}>끄기</button></span></div>`;
   return `<div class="notice"><span>이 기기의 알림이 꺼져 있습니다.</span><button class="btn sm primary" data-act="p-on" ${d}>알림 켜기</button></div>`;
 }
 function paintPush(){const e=$('push-box');if(e)e.innerHTML=pushHtml();}
